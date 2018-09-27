@@ -5,4 +5,12 @@ package ImuTesting;
  */
 
 public class autowhatever {
+    //do this thing
+    public int nmb=3;
+
+
+
+    //say hi
+    boolean four=true;
+    
 }
