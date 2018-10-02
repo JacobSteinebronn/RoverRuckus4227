@@ -1,5 +1,6 @@
 package Lazerz;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -9,7 +10,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 /**
  * Created by hhs-robotics on 8/1/2018.
  */
-
+@Disabled
 @Autonomous(name = "AutoRi3d", group = "Auto")
 public class AutoRi3d extends LinearOpMode {
 

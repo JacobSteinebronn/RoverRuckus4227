@@ -1,5 +1,6 @@
 package Lazerz;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
@@ -10,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 /**
  * Created by hhs-robotics on 9/20/2018.
  */
+@Disabled
 @TeleOp (name="Printouts",group="Things")
 public class Printers extends OpMode {
     DistanceSensor sensor1;

@@ -53,6 +53,13 @@ public class Tester1 extends OpMode {
         sensor2=hardwareMap.get(DistanceSensor.class, "s2");
 
 
+        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
         parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
@@ -158,6 +165,17 @@ public class Tester1 extends OpMode {
                                 Math.sqrt(gravity.xAccel*gravity.xAccel
                                         + gravity.yAccel*gravity.yAccel
                                         + gravity.zAccel*gravity.zAccel));
+                    }
+                });
+        telemetry.addLine()
+                .addData("enc1", new Func<String>() {
+                    @Override public String value() {
+                        return motorL.getCurrentPosition()+"";
+                    }
+                })
+                .addData("encR", new Func<String>() {
+                    @Override public String value() {
+                        return ""+motorR.getCurrentPosition();
                     }
                 });
     }
