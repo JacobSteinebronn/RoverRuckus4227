@@ -1,14 +1,13 @@
 package ImuTesting;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
-import com.qualcomm.robotcore.hardware.GyroSensor;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -21,9 +20,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
-@TeleOp(name = "ImuTest", group = "ZZZ_Template")
-public class Tester1 extends OpMode {
+/**
+ * Created by hhs-robotics on 8/1/2018.
+ */
 
+@Autonomous(name = "autoTest", group = "Auto")
+public class AutoTest extends LinearOpMode {
     public DcMotor motorL;
     public DcMotor motorR;
     public Servo lServo;
@@ -36,11 +38,64 @@ public class Tester1 extends OpMode {
     Orientation angles;
     Acceleration gravity;
 
+    enum State{
+        MOVE,
+        TURN,
+        MOVE2,
+        STOP;
 
+        public State getNext(){
+            return this.ordinal()<State.values().length-1?State.values()[this.ordinal()+1]:State.MOVE;
+        }
+
+    }
+    State state=State.MOVE;
+
+    int encoderTickInitial=0;
+    double headingInitial=0;
+
+    void motorDrive(double power){
+        motorL.setPower(-power);
+        motorR.setPower(power);
+
+    }
+    private boolean driveTicks(double power, int ticks){
+        motorDrive((ticks>0?1:-1)*power);
+        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitial>=ticks:motorR.getCurrentPosition()-encoderTickInitial<=ticks);
+    }
+    private boolean turnDegrees(double power, int degrees){
+        motorR.setPower(-power);
+        motorL.setPower(-power);
+        return (double)angles.firstAngle-headingInitial>=degrees;
+
+
+
+    }
+    private void next() {
+        state=state.getNext();
+        encoderTickInitial=motorR.getCurrentPosition();
+        headingInitial=(double)angles.firstAngle;
+        motorDrive(0);
+    }
+
+    private void driveTime(double power, long time) throws InterruptedException {
+        motorL.setPower(power);
+        motorR.setPower(power);
+        Thread.sleep(time);
+        motorL.setPower(0);
+        motorR.setPower(0);
+
+    }
+
+    private void turn(double powerL, double powerR, long time) throws InterruptedException{
+        motorL.setPower(powerL);
+        motorR.setPower(powerR);
+        Thread.sleep(time);
+        motorL.setPower(0);
+        motorR.setPower(0);
+    }
     @Override
-    public void init() {
-//        robot.init(hardwareMap);
-
+    public void runOpMode() throws InterruptedException {
         motorL = hardwareMap.get(DcMotor.class, "leftMotor");
         motorR = hardwareMap.get(DcMotor.class, "rightMotor");
         lServo=hardwareMap.get(Servo.class,"lServo");
@@ -75,45 +130,51 @@ public class Tester1 extends OpMode {
 
         composeTelemetry();
 
+        waitForStart();
 
-    }
-    boolean aWasPressed;
-    boolean leftPressed;
-    boolean rightPressed;
-    boolean rightBumper;
-    boolean leftBumper;
-
-    double powerL;
-    double powerR;
-    @Override
-    public void loop() {
-        telemetry.update();
+        while(!isStopRequested()){
+            telemetry.update();
 
 
 
-        powerL = gamepad1.left_stick_y;
-        powerR = gamepad1.right_stick_y;
 
-        powerL*=-1;
-        powerL = Range.clip(powerL, -1, 1);
-        powerR = Range.clip(powerR, -1, 1);
-
-        motorL.setPower(powerL);
-        motorR.setPower(powerR);
+            switch(state){
+                case MOVE:
+                    if(driveTicks(.5,5000)){
+                        next();
+                    }
 
 
-        if(gamepad1.dpad_up){
-            lServo.setPosition(.1);
-            rServo.setPosition(.1);
-        }else if(gamepad1.dpad_down){
-            lServo.setPosition(.9);
-            rServo.setPosition(.9);
-        }else{
-            lServo.setPosition(0);
-            rServo.setPosition(0);
+                    break;
+                case TURN:
+                    if(turnDegrees(.5,45)){
+                        next();
+                    }
+
+
+                    break;
+                case MOVE2:
+                    if(driveTicks(.5,- 7000)){
+                        next();
+                    }
+
+                    break;
+                case STOP:
+                default:
+                    requestOpModeStop();
+
+            }
+
         }
 
+
+
+
+
     }
+
+
+
 
     void composeTelemetry() {
 
@@ -137,7 +198,7 @@ public class Tester1 extends OpMode {
                 })
                 .addData("Power L/R:", new Func<String>() {
                     @Override public String value() {
-                        return powerL+"/"+powerR;
+                        return motorL.getPower()+"/"+motorR.getPower();
                     }
                 });
 
@@ -159,9 +220,9 @@ public class Tester1 extends OpMode {
                 });
 
         telemetry.addLine()
-                .addData("grvty", new Func<String>() {
+                .addData("State: ", new Func<String>() {
                     @Override public String value() {
-                        return gravity.toString();
+                        return state+"";
                     }
                 })
                 .addData("mag", new Func<String>() {
@@ -184,11 +245,6 @@ public class Tester1 extends OpMode {
                     }
                 });
     }
-
-    //----------------------------------------------------------------------------------------------
-    // Formatting jasffkgjjaofigjl
-    //----------------------------------------------------------------------------------------------
-
     String formatAngle(AngleUnit angleUnit, double angle) {
         return formatDegrees(AngleUnit.DEGREES.fromUnit(angleUnit, angle));
     }
@@ -196,6 +252,4 @@ public class Tester1 extends OpMode {
     String formatDegrees(double degrees){
         return String.format(Locale.getDefault(), "%.1f", AngleUnit.DEGREES.normalize(degrees));
     }
-
 }
-
