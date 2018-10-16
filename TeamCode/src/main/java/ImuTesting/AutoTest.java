@@ -31,8 +31,9 @@ public class AutoTest extends LinearOpMode {
     public DcMotor motorR;
     public Servo lServo;
     public Servo rServo;
-    //public DistanceSensor sensor1;
-    public DistanceSensor sensor2;
+    public DistanceSensor sideRange1;
+    public DistanceSensor sideRange2;
+    public DistanceSensor frontSensor;
 
     BNO055IMU imu;
 
@@ -77,6 +78,12 @@ public class AutoTest extends LinearOpMode {
     int encoderTickInitial=0;
     double headingInitial=0;
 
+    int initialRange=10;
+
+    double angleTolerance=3;
+    int goodCounter=0;
+    int angleTimeTolerance=1000;
+
     void motorDrive(double power){
         motorL.setPower(-power);
         motorR.setPower(power);
@@ -86,10 +93,20 @@ public class AutoTest extends LinearOpMode {
         motorDrive((ticks>0?1:-1)*power);
         return (ticks>0?motorR.getCurrentPosition()-encoderTickInitial>=ticks:motorR.getCurrentPosition()-encoderTickInitial<=ticks);
     }
+
     private boolean turnDegrees(double power, int degrees){
-        motorR.setPower((degrees>0?-1:1)*power);
-        motorL.setPower((degrees>0?-1:1)*power);
-        return (degrees>0?(double)angles.firstAngle-headingInitial>=degrees:(double)angles.firstAngle-headingInitial<=degrees);
+
+        motorR.setPower(((double)angles.firstAngle-headingInitial-degrees>0?1:-1)*power);
+
+        if(Math.abs((double)angles.firstAngle-headingInitial-degrees)>=7)
+            motorL.setPower(((double)angles.firstAngle-headingInitial-degrees>0?1:-1)*power);
+        else motorL.setPower(0);
+
+
+        goodCounter+=Math.abs((double)angles.firstAngle-headingInitial-degrees)<=angleTolerance ?1:-goodCounter;
+        return goodCounter>=angleTimeTolerance;
+
+        //return (degrees>0?(double)angles.firstAngle-headingInitial>=degrees:(double)angles.firstAngle-headingInitial<=degrees);
 
 
     }
@@ -98,6 +115,8 @@ public class AutoTest extends LinearOpMode {
         encoderTickInitial=motorR.getCurrentPosition();
         headingInitial=(double)angles.firstAngle;
         motorDrive(0);
+        goodCounter=0;
+        initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
     }
 
     private void driveTime(double power, long time) throws InterruptedException {
@@ -107,6 +126,52 @@ public class AutoTest extends LinearOpMode {
         motorL.setPower(0);
         motorR.setPower(0);
 
+    }
+
+
+    int skatingTolerance=3;
+    double skatingDiff=.35;
+    private void skate(double power){
+        int d1=(int)sideRange1.getDistance(DistanceUnit.CM);
+        int d2=(int)sideRange2.getDistance(DistanceUnit.CM);
+
+        //backward is r- l+
+        //if port 0 is larger then r becomes more neg else vice
+
+        if(power>0){
+            double r=-power;
+            double l=power;
+            if(d1-d2-skatingTolerance>0)
+                r-=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r+=skatingDiff;
+
+            motorR.setPower(r);
+            motorL.setPower(l);
+
+
+        }else{
+            double r=-power;
+            double l=power;
+            if(d1-d2-skatingTolerance>0)
+                r-=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r+=skatingDiff;
+
+            motorR.setPower(r);
+            motorL.setPower(l);
+        }
+
+
+
+
+    }
+    private boolean skateDist(double power, int dist){
+        skate(power);
+        if(dist>0){
+            return motorR.getCurrentPosition()-encoderTickInitial>dist-encoderTickInitial;
+        }
+        return motorR.getCurrentPosition()-encoderTickInitial<dist-encoderTickInitial;
     }
 
     private void turn(double powerL, double powerR, long time) throws InterruptedException{
@@ -120,7 +185,7 @@ public class AutoTest extends LinearOpMode {
     boolean startHanging=false;
     boolean startNearCrater=true;
     boolean redCrater=true;
-    int timeDelay=3;
+    double timeDelay=.5;
 
 
     @Override
@@ -136,8 +201,9 @@ public class AutoTest extends LinearOpMode {
         rServo.setDirection(Servo.Direction.FORWARD);
 
         //sensor1=hardwareMap.get(DistanceSensor.class, "s1");
-        sensor2=hardwareMap.get(DistanceSensor.class, "s2");
-
+        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
 
         motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -276,60 +342,73 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    if(driveTicks(.2,-1500)){
+                    if(driveTicks(.7,-1500)){
                         next();
 
                     }
                     break;
                 case FACEWALL:
                     if(startNearCrater){
-                        if(turnDegrees(.2,45)){
+                        if(turnDegrees(.3,90)){
                             next();
                         }
                     }else{
-                        if(turnDegrees(.2,-45)){
+                        if(turnDegrees(.3,-45)){
 
                         }
                     }
                     break;
                 case DELAYTIME:
-                    Thread.sleep(timeDelay*1000);
+                    Thread.sleep((int)(timeDelay*1000));
                     next();
                     break;
                 case GOTOWALL:
-                    motorDrive(-.2);
-                    if(sensor2.getDistance(DistanceUnit.CM)<20){
+                    motorDrive(-.7);
+                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
                         next();
                     }
                     break;
                 case FACEDEPOT:
-                    if(turnDegrees(.2, 90)){
+                    if(turnDegrees(.3, 45)){
                         next();
                     }
                     break;
                 case GOTOWALL2:
-                    motorDrive(-.2);
-                    if(sensor2.getDistance(DistanceUnit.CM)<20){
+                    skate(.6);
+                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
                         next();
                     }
                     break;
                 case DEPOSIT:
-                    if(driveTicks(.3,500)){
+
+                    if(driveTicks(.7,500)){
+                        imu.initialize(parameters);
+                        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
                         next();
+
                     }
                     break;
                 case FACECRATER:
-                    if(redCrater&&turnDegrees(.2,180)){
-                        next();
-                    }else{
-                        if(turnDegrees(.2,90)){
+                    if(!redCrater) {
+                        if (turnDegrees(.4, 90)) {
                             next();
                         }
+                    }else{
+                        next();
                     }
+
                     break;
                 case DRIVECRATER:
-                    if(driveTicks(.2, -10000)){
+                    if(redCrater){
+                        skate(-.7);
+                        if(angles.secondAngle>5||angles.secondAngle<-5){
+                            next();
+                        }
+                    }else{
+                        skate(.7);
                         next();
+                        //TODO: FIX MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+
                     }
                     break;
                 case STOP:
@@ -415,6 +494,17 @@ public class AutoTest extends LinearOpMode {
                 .addData("encR", new Func<String>() {
                     @Override public String value() {
                         return ""+motorR.getCurrentPosition();
+                    }
+                });
+        telemetry.addLine()
+                .addData("FramesWithinTolerance:", new Func<String>() {
+                    @Override public String value() {
+                        return goodCounter+"/"+angleTimeTolerance;
+                    }
+                })
+                .addData("AngleDistance", new Func<String>() {
+                    @Override public String value() {
+                        return Math.abs((double)angles.firstAngle-headingInitial-45)+"";
                     }
                 });
     }
