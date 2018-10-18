@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.sun.tools.javac.comp.Lower;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -34,6 +35,7 @@ public class AutoTest extends LinearOpMode {
     public DistanceSensor sideRange1;
     public DistanceSensor sideRange2;
     public DistanceSensor frontSensor;
+    public Servo marker;
 
     BNO055IMU imu;
 
@@ -53,6 +55,72 @@ public class AutoTest extends LinearOpMode {
         }
     }
     InitState initState=InitState.HANGING;
+
+    enum HangState{
+        LOWER,
+        LTWIST,
+        WIGGLE,
+        RTWIST,
+        WIGGLE2,
+        STOP;
+
+        public HangState getNext(){
+            return this.ordinal()<HangState.values().length-1?HangState.values()[this.ordinal()+1]:HangState.LOWER;
+        }
+
+    }
+    HangState hangState=HangState.LOWER;
+
+    private boolean lower() throws InterruptedException{
+
+        switch(hangState){
+            case LOWER:
+                lServo.setPosition(.1);
+                rServo.setPosition(.1);
+
+                Thread.sleep(2500);
+                lServo.setPosition(.5);
+                rServo.setPosition(.5);
+                hangState= hangState.getNext();
+
+                break;
+            case LTWIST:
+                if(turnDegrees(.3,-20)){
+                    hangState= hangState.getNext();
+
+                }
+                break;
+            case WIGGLE:
+                if(driveTicks(.4,200)){
+                    hangState= hangState.getNext();
+
+                }
+                break;
+            case RTWIST:
+                if(turnDegrees(.3,20)) {
+                    hangState = hangState.getNext();
+                }
+
+                    break;
+            case WIGGLE2:
+                if(driveTicks(.4,200)){
+                    hangState= hangState.getNext();
+
+                }
+
+                break;
+
+            case STOP:
+            default:
+                return true;
+        }
+
+
+
+
+
+        return false;
+    }
 
 
     enum State{
@@ -95,15 +163,21 @@ public class AutoTest extends LinearOpMode {
     }
 
     private boolean turnDegrees(double power, int degrees){
+        double diff=(double)angles.firstAngle-headingInitial-degrees;
 
-        motorR.setPower(((double)angles.firstAngle-headingInitial-degrees>0?1:-1)*power);
+        if(Math.abs(diff)>angleTolerance){
+            goodCounter=0;
+            motorR.setPower((diff>0?1:-1)*power);
 
-        if(Math.abs((double)angles.firstAngle-headingInitial-degrees)>=7)
-            motorL.setPower(((double)angles.firstAngle-headingInitial-degrees>0?1:-1)*power);
-        else motorL.setPower(0);
+            if(Math.abs(diff)>8)
+                motorL.setPower((diff>0?1:-1)*power);
+            else motorL.setPower(0);
+        }else{
+            motorL.setPower(0);
+            motorR.setPower(0);
+            goodCounter++;
+        }
 
-
-        goodCounter+=Math.abs((double)angles.firstAngle-headingInitial-degrees)<=angleTolerance ?1:-goodCounter;
         return goodCounter>=angleTimeTolerance;
 
         //return (degrees>0?(double)angles.firstAngle-headingInitial>=degrees:(double)angles.firstAngle-headingInitial<=degrees);
@@ -182,11 +256,12 @@ public class AutoTest extends LinearOpMode {
         motorR.setPower(0);
     }
 
-    boolean startHanging=false;
+//TODO:=============================================================================================
+    boolean startHanging=true;
     boolean startNearCrater=true;
     boolean redCrater=true;
     double timeDelay=.5;
-
+//TODO:=============================================================================================
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -195,6 +270,7 @@ public class AutoTest extends LinearOpMode {
         lServo=hardwareMap.get(Servo.class,"lServo");
         rServo=hardwareMap.get(Servo.class,"rServo");
 
+        marker=hardwareMap.get(Servo.class, "marker");
 
 
         lServo.setDirection(Servo.Direction.REVERSE);
@@ -230,13 +306,13 @@ public class AutoTest extends LinearOpMode {
         boolean aDown=false;
 
         boolean isReady=false;
-        /*
+
         while(!isReady){
 
             if(gamepad1.dpad_down){dDown=true;}
             if(gamepad1.dpad_up){dUp=true;}
             if(gamepad1.a){aDown=true;}
-
+/*
             switch(initState){
                 case HANGING:
                     telemetry.clearAll();
@@ -321,11 +397,13 @@ public class AutoTest extends LinearOpMode {
 
 
             }
+            */
         }
-        */
+
         waitForStart();
 
         composeTelemetry();
+        marker.setPosition(1.1);
 
         while(!isStopRequested()){
             telemetry.update();
@@ -335,7 +413,11 @@ public class AutoTest extends LinearOpMode {
 
             switch(state){
                 case DETACH:
+
                     if(startHanging){
+                        if(lower()){
+                            next();
+                        }
 
                     }else {
                         next();
@@ -353,8 +435,8 @@ public class AutoTest extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if(turnDegrees(.3,-45)){
-
+                        if(turnDegrees(.25,-45)){
+                            next();
                         }
                     }
                     break;
@@ -369,24 +451,30 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case FACEDEPOT:
-                    if(turnDegrees(.3, 45)){
-                        next();
+                    if(startNearCrater) {
+                        if (turnDegrees(.3, 45)) {
+                            next();
+                        }
+                    }else{
+                        if (turnDegrees(.3, 90)) {
+                            next();
+                        }
                     }
                     break;
                 case GOTOWALL2:
                     skate(.6);
-                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
+                    if(frontSensor.getDistance(DistanceUnit.CM)<70){
                         next();
                     }
                     break;
                 case DEPOSIT:
+                    marker.setPosition(.2);
+                    Thread.sleep(1000);
+                    imu.initialize(parameters);
+                    imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+                    next();
 
-                    if(driveTicks(.7,500)){
-                        imu.initialize(parameters);
-                        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
-                        next();
 
-                    }
                     break;
                 case FACECRATER:
                     if(!redCrater) {
