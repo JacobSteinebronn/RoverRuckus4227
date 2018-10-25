@@ -9,14 +9,14 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-@Disabled
+//@Disabled
 @TeleOp(name = "TeleRi3d", group = "ZZZ_Template")
 public class TeleRi3d extends OpMode {
     DcMotor motorL;
     DcMotor motorR;
     Servo lServo;
     Servo rServo;
-    DistanceSensor sensor;
+    //DistanceSensor sensor;
 
     @Override
     public void init() {
@@ -27,12 +27,12 @@ public class TeleRi3d extends OpMode {
         lServo.setDirection(Servo.Direction.REVERSE);
         rServo.setDirection(Servo.Direction.FORWARD);
 
-        sensor=hardwareMap.get(DistanceSensor.class,"sensor");
+        //sensor=hardwareMap.get(DistanceSensor.class,"sensor");
     }
 
     @Override
     public void loop() {
-        telemetry.addData("Distance:", sensor.getDistance(DistanceUnit.METER));
+        //telemetry.addData("Distance:", sensor.getDistance(DistanceUnit.METER));
 
         double powerL = gamepad1.left_stick_y;
         double powerR = gamepad1.right_stick_y;

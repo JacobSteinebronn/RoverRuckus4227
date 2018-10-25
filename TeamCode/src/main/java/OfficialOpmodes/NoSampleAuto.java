@@ -1,11 +1,14 @@
-package ImuTesting;
+package OfficialOpmodes;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.sun.tools.javac.comp.Lower;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -19,9 +22,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
+/**
+ * Created by hhs-robotics on 8/1/2018.
+ */
 
-@Autonomous(name = "autoTest", group = "Auto")
-public class AutoTest extends LinearOpMode {
+@Autonomous(name = "AutoNoSample", group = "Auto")
+public class NoSampleAuto extends LinearOpMode {
     public DcMotor motorL;
     public DcMotor motorR;
     public Servo lServo;
@@ -36,12 +42,26 @@ public class AutoTest extends LinearOpMode {
     Orientation angles;
     Acceleration gravity;
 
+    enum InitState {
+        HANGING,
+        STARTPOS,
+        DELAY,
+        CRATER,
+        READY;
+
+
+        public InitState getNext(){
+            return this.ordinal()<InitState.values().length-1?InitState.values()[this.ordinal()+1]:InitState.READY;
+        }
+    }
+    InitState initState=InitState.HANGING;
 
     enum HangState{
         LOWER,
         LTWIST,
         WIGGLE,
         RTWIST,
+        WIGGLE2,
         STOP;
 
         public HangState getNext(){
@@ -71,7 +91,7 @@ public class AutoTest extends LinearOpMode {
                 }
                 break;
             case WIGGLE:
-                if(driveTicks(.7,700)){
+                if(driveTicks(.4,200)){
                     hangState= hangState.getNext();
 
                 }
@@ -81,7 +101,15 @@ public class AutoTest extends LinearOpMode {
                     hangState = hangState.getNext();
                 }
 
-                    break;
+                break;
+            case WIGGLE2:
+                if(driveTicks(.4,200)){
+                    hangState= hangState.getNext();
+
+                }
+
+                break;
+
             case STOP:
             default:
                 return true;
@@ -220,13 +248,18 @@ public class AutoTest extends LinearOpMode {
         return motorR.getCurrentPosition()-encoderTickInitial<dist-encoderTickInitial;
     }
 
+    private void turn(double powerL, double powerR, long time) throws InterruptedException{
+        motorL.setPower(powerL);
+        motorR.setPower(powerR);
+        Thread.sleep(time);
+        motorL.setPower(0);
+        motorR.setPower(0);
+    }
 
-
-
-//TODO:=============================================================================================
+    //TODO:=============================================================================================
     boolean startHanging=true;
     boolean startNearCrater=true;
-    boolean ownCrater =true;
+    boolean redCrater=true;
     double timeDelay=.5;
 //TODO:=============================================================================================
 
@@ -243,6 +276,7 @@ public class AutoTest extends LinearOpMode {
         lServo.setDirection(Servo.Direction.REVERSE);
         rServo.setDirection(Servo.Direction.FORWARD);
 
+        //sensor1=hardwareMap.get(DistanceSensor.class, "s1");
         frontSensor=hardwareMap.get(DistanceSensor.class, "front");
         sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
         sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
@@ -266,50 +300,116 @@ public class AutoTest extends LinearOpMode {
         imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
 
 
+        boolean selection=false;
         boolean dDown=false;
         boolean dUp=false;
         boolean aDown=false;
-        boolean bDown=false;
-        boolean xDown=false;
 
         boolean isReady=false;
 
-        composeTelemetry2();
+        while(!isStarted()){
 
-        while(!isStarted()||!isReady){
-            telemetry.update();
             if(gamepad1.dpad_down){dDown=true;}
             if(gamepad1.dpad_up){dUp=true;}
             if(gamepad1.a){aDown=true;}
-            if(gamepad1.b){bDown=true;}
-            if(gamepad1.x){xDown=true;}
+/*
+            switch(initState){
+                case HANGING:
+                    telemetry.clearAll();
+                    telemetry.addData("Start Hanging?","");
+                    telemetry.addData("Yes",selection?"<":" ");
+                    telemetry.addData("No",!selection?"<":" ");
+                    if(!gamepad1.dpad_down&&dDown){
+                        selection=!selection;
+                        dDown=false;
+                    }
+                    if(!gamepad1.dpad_up&&dUp){
+                        dUp=false;
+                        selection=!selection;
+                    }
+                    if(!gamepad1.a&&aDown){
+                        aDown=false;
+                        initState=initState.getNext();
+                        startHanging=selection;
+                    }
 
-            if(!gamepad1.dpad_down&&dDown){dDown=false;timeDelay-=.5;timeDelay=Math.abs(timeDelay);}
-            if(!gamepad1.dpad_up&&dUp){dUp=false;timeDelay+=.5;}
-            if(!gamepad1.a&&aDown){aDown=false;startHanging=!startHanging;}
-            if(!gamepad1.b&&bDown){bDown=false;startNearCrater=!startNearCrater;}
-            if(!gamepad1.x&&xDown){xDown=false;ownCrater=!ownCrater;}
+                    break;
+                case DELAY:
+                    telemetry.clearAll();
+                    telemetry.addData("Set Delay(Seconds)","");
+                    telemetry.addData("Delay time:",timeDelay);
+                    if(!gamepad1.dpad_down&&dDown){
+                        timeDelay--;
+                        dDown=false;
+                    }
+                    if(!gamepad1.dpad_up&&dUp){
+                        dUp=false;
+                        timeDelay++;
+                    }
+                    if(!gamepad1.a&&aDown){
+                        aDown=false;
+                        initState=initState.getNext();
+                    }
 
-            if(gamepad1.y){
+                    break;
+                case STARTPOS:
+                    telemetry.clearAll();
+                    telemetry.addData("Start facing crater?","");
+                    telemetry.addData("Yes",selection?"<":" ");
+                    telemetry.addData("No",!selection?"<":" ");
+                    if(!gamepad1.dpad_down&&dDown){
+                        selection=!selection;
+                        dDown=false;
+                    }
+                    if(!gamepad1.dpad_up&&dUp){
+                        dUp=false;
+                        selection=!selection;
+                    }
+                    if(!gamepad1.a&&aDown){
+                        aDown=false;
+                        initState=initState.getNext();
+                        startNearCrater=selection;
+                    }
+                    break;
+                case CRATER:
+                    telemetry.clearAll();
+                    telemetry.addData("Aim for own crater?","");
+                    telemetry.addData("Yes",selection?"<":" ");
+                    telemetry.addData("No",!selection?"<":" ");
+                    if(!gamepad1.dpad_down&&dDown){
+                        selection=!selection;
+                        dDown=false;
+                    }
+                    if(!gamepad1.dpad_up&&dUp){
+                        dUp=false;
+                        selection=!selection;
+                    }
+                    if(!gamepad1.a&&aDown){
+                        aDown=false;
+                        initState=initState.getNext();
+                        redCrater=selection;
+                    }
+                    break;
+                case READY:
+                default:
+                    isReady=true;
+                    break;
 
-                isReady=true;
-                telemetry.clearAll();
-                readyTelemetry();
-                telemetry.update();
-                break;
+
             }
-
-
+            */
         }
 
         waitForStart();
 
-        telemetry.clearAll();
         composeTelemetry();
         marker.setPosition(1.1);
 
         while(!isStopRequested()){
             telemetry.update();
+
+
+
 
             switch(state){
                 case DETACH:
@@ -377,7 +477,7 @@ public class AutoTest extends LinearOpMode {
 
                     break;
                 case FACECRATER:
-                    if(!ownCrater) {
+                    if(!redCrater) {
                         if (turnDegrees(.4, 90)) {
                             next();
                         }
@@ -387,7 +487,7 @@ public class AutoTest extends LinearOpMode {
 
                     break;
                 case DRIVECRATER:
-                    if(ownCrater){
+                    if(redCrater){
                         skate(-.7);
                         if(angles.secondAngle>5||angles.secondAngle<-5){
                             next();
@@ -417,7 +517,6 @@ public class AutoTest extends LinearOpMode {
 
 
     void composeTelemetry() {
-        telemetry.clearAll();
 
         // At the beginning of each telemetry update, grab a bunch of data
         // from the IMU that we will then display in separate lines.
@@ -463,9 +562,7 @@ public class AutoTest extends LinearOpMode {
         telemetry.addLine()
                 .addData("State: ", new Func<String>() {
                     @Override public String value() {
-                        if(state!=State.DETACH)
-                            return state+"";
-                        return "DETACH: "+hangState;
+                        return state+"";
                     }
                 })
                 .addData("mag", new Func<String>() {
@@ -499,81 +596,6 @@ public class AutoTest extends LinearOpMode {
                     }
                 });
     }
-
-    String line1="Initializing Autonomous... Press <Y> to finish!";
-    String line2="<A> Start hanging?";
-    String line3="<X> End at own crater? ";
-    String line4="<B> Start near crater? ";
-    String line5="<DPAD> Delay time ";
-
-    void composeTelemetry2() {
-        telemetry.clearAll();
-        // At the beginning of each telemetry update, grab a bunch of data
-        // from the IMU that we will then display in separate lines.
-        telemetry.addAction(new Runnable() { @Override public void run()
-        {
-            // Acquiring the angles is relatively expensive; we don't want
-            // to do that in each of the three items that need that info, as that's
-            // three times the necessary expense.
-
-        }
-        });
-
-        telemetry.addLine()
-                .addData(line1, new Func<String>() {
-                    @Override public String value() {
-                        return "";
-                    }
-                });
-        telemetry.addLine();
-        telemetry.addLine()
-                .addData(line2, new Func<String>() {
-                    @Override public String value() {
-                        return startHanging?"Yes":"No";
-                    }
-                });
-        telemetry.addLine()
-                .addData(line3, new Func<String>() {
-                    @Override public String value() {
-
-                        return ownCrater?"Yes":"No";
-
-                    }
-                });
-        telemetry.addLine()
-                .addData(line4, new Func<String>() {
-                    @Override public String value() {
-                        return startNearCrater?"Yes":"No";
-                    }
-                });
-        telemetry.addLine()
-                .addData(line5, new Func<String>() {
-                    @Override public String value() {
-                        return timeDelay+"";
-                    }
-                });
-
-
-    }
-    void readyTelemetry(){
-        telemetry.clearAll();
-        // At the beginning of each telemetry update, grab a bunch of data
-        // from the IMU that we will then display in separate lines.
-        telemetry.addAction(new Runnable() { @Override public void run()
-        {
-
-
-        }
-        });
-
-        telemetry.addLine()
-                .addData("Autonomous ready!", new Func<String>() {
-                    @Override public String value() {
-                        return "";
-                    }
-                });
-    }
-
     String formatAngle(AngleUnit angleUnit, double angle) {
         return formatDegrees(AngleUnit.DEGREES.fromUnit(angleUnit, angle));
     }
