@@ -5,8 +5,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
-import com.qualcomm.robotcore.hardware.GyroSensor;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
@@ -21,15 +19,21 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
-@TeleOp(name = "ImuTest", group = "ZZZ_Template")
+import Helpers.Scale2;
+
+@TeleOp(name = "TeleTest", group = "ZZZ_Template")
 public class Tester1 extends OpMode {
 
     public DcMotor motorL;
     public DcMotor motorR;
-    public Servo lServo;
-    public Servo rServo;
-    public DistanceSensor sensor1;
-    public DistanceSensor sensor2;
+    public Servo lifter1;
+    public Servo lifter2;
+
+
+    public DistanceSensor sideRange1;
+    public DistanceSensor sideRange2;
+    public DistanceSensor frontSensor;
+    public Servo marker;
 
     BNO055IMU imu;
 
@@ -43,17 +47,19 @@ public class Tester1 extends OpMode {
 
         motorL = hardwareMap.get(DcMotor.class, "leftMotor");
         motorR = hardwareMap.get(DcMotor.class, "rightMotor");
-        lServo=hardwareMap.get(Servo.class,"lServo");
-        rServo=hardwareMap.get(Servo.class,"rServo");
+
+        lifter1=hardwareMap.get(Servo.class,"lifter1");
+        lifter2=hardwareMap.get(Servo.class,"lifter2");
+
+        marker=hardwareMap.get(Servo.class, "marker");
 
 
+        lifter1.setDirection(Servo.Direction.REVERSE);
+        lifter2.setDirection(Servo.Direction.FORWARD);
 
-        lServo.setDirection(Servo.Direction.REVERSE);
-        rServo.setDirection(Servo.Direction.FORWARD);
-
-        sensor1=hardwareMap.get(DistanceSensor.class, "s1");
-        sensor2=hardwareMap.get(DistanceSensor.class, "s2");
-
+        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
 
         motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -73,6 +79,7 @@ public class Tester1 extends OpMode {
         imu.initialize(parameters);
         imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
 
+
         composeTelemetry();
 
 
@@ -91,26 +98,29 @@ public class Tester1 extends OpMode {
 
 
 
-        powerL = gamepad1.left_stick_y;
-        powerR = gamepad1.right_stick_y;
+        powerL = gamepad1.right_stick_y;
+        powerR = gamepad1.left_stick_y;
 
         powerL*=-1;
         powerL = Range.clip(powerL, -1, 1);
         powerR = Range.clip(powerR, -1, 1);
+
+        powerL= Scale2.scaleInput(1, powerL);
+        powerR=Scale2.scaleInput(1, powerR);
 
         motorL.setPower(powerL);
         motorR.setPower(powerR);
 
 
         if(gamepad1.dpad_up){
-            lServo.setPosition(.1);
-            rServo.setPosition(.1);
+            lifter1.setPosition(.1);
+            lifter2.setPosition(.1);
         }else if(gamepad1.dpad_down){
-            lServo.setPosition(.9);
-            rServo.setPosition(.9);
+            lifter1.setPosition(.9);
+            lifter2.setPosition(.9);
         }else{
-            lServo.setPosition(0);
-            rServo.setPosition(0);
+            lifter1.setPosition(0);
+            lifter2.setPosition(0);
         }
 
     }
@@ -159,17 +169,14 @@ public class Tester1 extends OpMode {
                 });
 
         telemetry.addLine()
-                .addData("grvty", new Func<String>() {
+                .addData("scaleinput L/R", new Func<String>() {
                     @Override public String value() {
-                        return gravity.toString();
+                        return Scale2.scaleInput(1, gamepad1.left_stick_y)+"/"+Scale2.scaleInput(1, gamepad1.right_stick_y);
                     }
                 })
-                .addData("mag", new Func<String>() {
+                .addData("scaleinput of .5", new Func<String>() {
                     @Override public String value() {
-                        return String.format(Locale.getDefault(), "%.3f",
-                                Math.sqrt(gravity.xAccel*gravity.xAccel
-                                        + gravity.yAccel*gravity.yAccel
-                                        + gravity.zAccel*gravity.zAccel));
+                        return ""+Scale2.scaleInput(1, .5);
                     }
                 });
         telemetry.addLine()

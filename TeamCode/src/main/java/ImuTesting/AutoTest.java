@@ -4,6 +4,7 @@ import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -24,8 +25,10 @@ import java.util.Locale;
 public class AutoTest extends LinearOpMode {
     public DcMotor motorL;
     public DcMotor motorR;
-    public Servo lServo;
-    public Servo rServo;
+    public Servo lifter1;
+    public Servo lifter2;
+
+
     public DistanceSensor sideRange1;
     public DistanceSensor sideRange2;
     public DistanceSensor frontSensor;
@@ -35,6 +38,7 @@ public class AutoTest extends LinearOpMode {
 
     Orientation angles;
     Acceleration gravity;
+
 
 
     enum HangState{
@@ -55,12 +59,12 @@ public class AutoTest extends LinearOpMode {
 
         switch(hangState){
             case LOWER:
-                lServo.setPosition(.1);
-                rServo.setPosition(.1);
+                lifter1.setPosition(.1);
+                lifter2.setPosition(.1);
 
                 Thread.sleep(2500);
-                lServo.setPosition(.5);
-                rServo.setPosition(.5);
+                lifter1.setPosition(.5);
+                lifter2.setPosition(.5);
                 hangState= hangState.getNext();
 
                 break;
@@ -120,7 +124,7 @@ public class AutoTest extends LinearOpMode {
 
     int initialRange=10;
 
-    double angleTolerance=3;
+    double angleTolerance=3.5;
     int goodCounter=0;
     int angleTimeTolerance=1000;
 
@@ -139,10 +143,10 @@ public class AutoTest extends LinearOpMode {
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            motorR.setPower((diff>0?1:-1)*power);
+            motorR.setPower((diff>0?-1:1)*power);
 
             if(Math.abs(diff)>8)
-                motorL.setPower((diff>0?1:-1)*power);
+                motorL.setPower((diff>0?-1:1)*power);
             else motorL.setPower(0);
         }else{
             motorL.setPower(0);
@@ -188,9 +192,9 @@ public class AutoTest extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r-=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r-=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -200,9 +204,9 @@ public class AutoTest extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r-=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r-=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -212,6 +216,7 @@ public class AutoTest extends LinearOpMode {
 
 
     }
+
     private boolean skateDist(double power, int dist){
         skate(power);
         if(dist>0){
@@ -234,14 +239,15 @@ public class AutoTest extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         motorL = hardwareMap.get(DcMotor.class, "leftMotor");
         motorR = hardwareMap.get(DcMotor.class, "rightMotor");
-        lServo=hardwareMap.get(Servo.class,"lServo");
-        rServo=hardwareMap.get(Servo.class,"rServo");
+
+        lifter1=hardwareMap.get(Servo.class,"lifter1");
+        lifter2=hardwareMap.get(Servo.class,"lifter2");
 
         marker=hardwareMap.get(Servo.class, "marker");
 
 
-        lServo.setDirection(Servo.Direction.REVERSE);
-        rServo.setDirection(Servo.Direction.FORWARD);
+        lifter1.setDirection(Servo.Direction.REVERSE);
+        lifter2.setDirection(Servo.Direction.FORWARD);
 
         frontSensor=hardwareMap.get(DistanceSensor.class, "front");
         sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
@@ -264,6 +270,7 @@ public class AutoTest extends LinearOpMode {
 
         imu.initialize(parameters);
         imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+
 
 
         boolean dDown=false;
@@ -324,7 +331,7 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    if(driveTicks(.7,-1500)){
+                    if(driveTicks(.7,-1100)){
                         next();
 
                     }
@@ -389,16 +396,18 @@ public class AutoTest extends LinearOpMode {
                 case DRIVECRATER:
                     if(ownCrater){
                         skate(-.7);
-                        if(angles.secondAngle>5||angles.secondAngle<-5){
+                        if(angles.secondAngle>2||angles.secondAngle<-2){
                             next();
                         }
                     }else{
                         skate(.7);
-                        next();
-                        //TODO: FIX MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+                        if(angles.secondAngle>1.5||angles.secondAngle<-1.5){
+                            next();
+                        }
 
                     }
                     break;
+
                 case STOP:
                 default:
                     requestOpModeStop();

@@ -167,10 +167,10 @@ public class NoSampleAuto extends LinearOpMode {
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            motorR.setPower((diff>0?1:-1)*power);
+            motorR.setPower((diff>0?-1:1)*power);
 
             if(Math.abs(diff)>8)
-                motorL.setPower((diff>0?1:-1)*power);
+                motorL.setPower((diff>0?-1:1)*power);
             else motorL.setPower(0);
         }else{
             motorL.setPower(0);
