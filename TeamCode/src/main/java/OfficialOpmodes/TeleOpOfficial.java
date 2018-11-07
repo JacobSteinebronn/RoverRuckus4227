@@ -1,7 +1,6 @@
-package ImuTesting;
+package OfficialOpmodes;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -22,9 +21,8 @@ import java.util.Locale;
 
 import Helpers.Scale2;
 
-@Disabled
-@TeleOp(name = "TeleTest", group = "ZZZ_Template")
-public class Tester1 extends OpMode {
+@TeleOp(name = "Teleop", group = "OfficialOpmodes")
+public class TeleOpOfficial extends OpMode {
 
     public DcMotor motorL;
     public DcMotor motorR;
@@ -112,12 +110,18 @@ public class Tester1 extends OpMode {
 
         motorL.setPower(powerL);
         motorR.setPower(powerR);
+        if(gamepad1.a||gamepad2.a){
+            marker.setPosition(.2);
+        }
+        if(gamepad1.b||gamepad2.b){
+            marker.setPosition(1);
 
+        }
 
-        if(gamepad1.dpad_up){
+        if(gamepad1.dpad_up||gamepad2.dpad_up){
             lifter1.setPosition(.1);
             lifter2.setPosition(.1);
-        }else if(gamepad1.dpad_down){
+        }else if(gamepad1.dpad_down||gamepad2.dpad_down){
             lifter1.setPosition(.9);
             lifter2.setPosition(.9);
         }else{

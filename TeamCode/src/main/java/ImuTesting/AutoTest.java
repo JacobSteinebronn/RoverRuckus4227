@@ -41,6 +41,7 @@ public class AutoTest extends LinearOpMode {
 
 
 
+
     enum HangState{
         LOWER,
         LTWIST,
@@ -69,19 +70,19 @@ public class AutoTest extends LinearOpMode {
 
                 break;
             case LTWIST:
-                if(turnDegrees(.3,-20)){
+                if(turnDegrees(.3,20)){
                     hangState= hangState.getNext();
 
                 }
                 break;
             case WIGGLE:
-                if(driveTicks(.7,700)){
+                if(driveTicks(.7,-400)){
                     hangState= hangState.getNext();
 
                 }
                 break;
             case RTWIST:
-                if(turnDegrees(.3,20)) {
+                if(turnDegrees(.3,-20)) {
                     hangState = hangState.getNext();
                 }
 
@@ -108,6 +109,7 @@ public class AutoTest extends LinearOpMode {
         FACEDEPOT,
         GOTOWALL2,
         DEPOSIT,
+        WIGGLEBACK,
         FACECRATER,
         DRIVECRATER,
         STOP;
@@ -121,12 +123,13 @@ public class AutoTest extends LinearOpMode {
 
     int encoderTickInitial=0;
     double headingInitial=0;
+    double pitchInitial=0;
 
     int initialRange=10;
 
     double angleTolerance=3.5;
     int goodCounter=0;
-    int angleTimeTolerance=1000;
+    int angleTimeTolerance=70;
 
     void motorDrive(double power){
         motorL.setPower(-power);
@@ -139,7 +142,7 @@ public class AutoTest extends LinearOpMode {
     }
 
     private boolean turnDegrees(double power, int degrees){
-        double diff=(double)angles.firstAngle-headingInitial-degrees;
+        double diff=heading-headingInitial-degrees;
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
@@ -156,14 +159,14 @@ public class AutoTest extends LinearOpMode {
 
         return goodCounter>=angleTimeTolerance;
 
-        //return (degrees>0?(double)angles.firstAngle-headingInitial>=degrees:(double)angles.firstAngle-headingInitial<=degrees);
 
 
     }
     private void next() {
         state=state.getNext();
         encoderTickInitial=motorR.getCurrentPosition();
-        headingInitial=(double)angles.firstAngle;
+        headingInitial=heading;
+        pitchInitial=angles.secondAngle;
         motorDrive(0);
         goodCounter=0;
         initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
@@ -313,9 +316,14 @@ public class AutoTest extends LinearOpMode {
 
         telemetry.clearAll();
         composeTelemetry();
-        marker.setPosition(1.1);
+        marker.setPosition(0);
+
+        angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        gravity  = imu.getGravity();
+
 
         while(!isStopRequested()){
+            updateHeading();
             telemetry.update();
 
             switch(state){
@@ -331,14 +339,23 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    if(driveTicks(.7,-1100)){
-                        next();
+                    if(startHanging){
+                        if(driveTicks(.7,-500)){
+                            next();
 
+                        }
+
+                    }else{
+                        if(driveTicks(.7,-1100)){
+                            next();
+
+                        }
                     }
+
                     break;
                 case FACEWALL:
                     if(startNearCrater){
-                        if(turnDegrees(.3,90)){
+                        if(turnDegrees(.2,90)){
                             next();
                         }
                     }else{
@@ -359,11 +376,11 @@ public class AutoTest extends LinearOpMode {
                     break;
                 case FACEDEPOT:
                     if(startNearCrater) {
-                        if (turnDegrees(.3, 45)) {
+                        if (turnDegrees(.2, 45)) {
                             next();
                         }
                     }else{
-                        if (turnDegrees(.3, 90)) {
+                        if (turnDegrees(.2, 90)) {
                             next();
                         }
                     }
@@ -375,13 +392,17 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case DEPOSIT:
-                    marker.setPosition(.2);
-                    Thread.sleep(1000);
-                    imu.initialize(parameters);
-                    imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+                    marker.setPosition(.7);
+                    Thread.sleep(300);
+
                     next();
 
 
+                    break;
+                case WIGGLEBACK:
+                    if(driveTicks(.6, 400)){
+                        next();
+                    }
                     break;
                 case FACECRATER:
                     if(!ownCrater) {
@@ -396,12 +417,12 @@ public class AutoTest extends LinearOpMode {
                 case DRIVECRATER:
                     if(ownCrater){
                         skate(-.7);
-                        if(angles.secondAngle>2||angles.secondAngle<-2){
+                        if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
                             next();
                         }
                     }else{
                         skate(.7);
-                        if(angles.secondAngle>1.5||angles.secondAngle<-1.5){
+                        if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
                             next();
                         }
 
@@ -422,8 +443,24 @@ public class AutoTest extends LinearOpMode {
 
     }
 
+    double heading;
+    Orientation             lastAngles = new Orientation();
+    private double updateHeading() {
 
 
+        double deltaAngle = angles.firstAngle - lastAngles.firstAngle;
+
+        if (deltaAngle < -180)
+            deltaAngle += 360;
+        else if (deltaAngle > 180)
+            deltaAngle -= 360;
+
+        heading += deltaAngle;
+
+        lastAngles = angles;
+
+        return heading;
+    }
 
     void composeTelemetry() {
         telemetry.clearAll();
@@ -455,7 +492,7 @@ public class AutoTest extends LinearOpMode {
         telemetry.addLine()
                 .addData("heading", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(angles.angleUnit, angles.firstAngle);
+                        return heading+"";
                     }
                 })
                 .addData("roll", new Func<String>() {
@@ -500,11 +537,6 @@ public class AutoTest extends LinearOpMode {
                 .addData("FramesWithinTolerance:", new Func<String>() {
                     @Override public String value() {
                         return goodCounter+"/"+angleTimeTolerance;
-                    }
-                })
-                .addData("AngleDistance", new Func<String>() {
-                    @Override public String value() {
-                        return Math.abs((double)angles.firstAngle-headingInitial-45)+"";
                     }
                 });
     }

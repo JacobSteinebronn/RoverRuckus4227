@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-//@Disabled
+@Disabled
 @TeleOp(name = "TeleRi3d", group = "ZZZ_Template")
 public class TeleRi3d extends OpMode {
     DcMotor motorL;
