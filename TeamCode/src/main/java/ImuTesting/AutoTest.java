@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -60,10 +61,10 @@ public class AutoTest extends LinearOpMode {
 
         switch(hangState){
             case LOWER:
-                lifter1.setPosition(.1);
-                lifter2.setPosition(.1);
+                lifter1.setPosition(0.1);
+                lifter2.setPosition(0.1);
 
-                Thread.sleep(2500);
+                Thread.sleep(4000);
                 lifter1.setPosition(.5);
                 lifter2.setPosition(.5);
                 hangState= hangState.getNext();
@@ -76,10 +77,11 @@ public class AutoTest extends LinearOpMode {
                 }
                 break;
             case WIGGLE:
-                if(driveTicks(.7,-400)){
-                    hangState= hangState.getNext();
+                motorDrive(-.7);
+                Thread.sleep(300);
+                hangState= hangState.getNext();
 
-                }
+
                 break;
             case RTWIST:
                 if(turnDegrees(.3,-20)) {
@@ -106,11 +108,11 @@ public class AutoTest extends LinearOpMode {
         FACEWALL,
         DELAYTIME,
         GOTOWALL,
+        BACKUP,
         FACEDEPOT,
         GOTOWALL2,
-        DEPOSIT,
-        WIGGLEBACK,
         FACECRATER,
+        DEPOSIT,
         DRIVECRATER,
         STOP;
 
@@ -121,7 +123,9 @@ public class AutoTest extends LinearOpMode {
     }
     State state=State.DETACH;
 
-    int encoderTickInitial=0;
+    int encoderTickInitialR=0;
+    int encoderTickInitialL=0;
+
     double headingInitial=0;
     double pitchInitial=0;
 
@@ -131,14 +135,32 @@ public class AutoTest extends LinearOpMode {
     int goodCounter=0;
     int angleTimeTolerance=70;
 
+
+
     void motorDrive(double power){
         motorL.setPower(-power);
         motorR.setPower(power);
 
     }
     private boolean driveTicks(double power, int ticks){
-        motorDrive((ticks>0?1:-1)*power);
-        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitial>=ticks:motorR.getCurrentPosition()-encoderTickInitial<=ticks);
+        double lPower=power;
+        double rPower=power;
+
+
+        int tickChangeR=motorR.getCurrentPosition()-encoderTickInitialR;
+        int tickChangeL=motorL.getCurrentPosition()-encoderTickInitialL;
+
+        if(tickChangeR-tickChangeL-50>0)
+            rPower/=2;
+        if(tickChangeL-tickChangeR-50>0)
+            lPower/=2;
+
+        if(ticks<0){lPower*=-1;rPower*=-1;}
+
+        motorR.setPower(rPower);
+        motorL.setPower(-lPower);
+
+        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitialR>=ticks:motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
     }
 
     private boolean turnDegrees(double power, int degrees){
@@ -163,8 +185,10 @@ public class AutoTest extends LinearOpMode {
 
     }
     private void next() {
+
         state=state.getNext();
-        encoderTickInitial=motorR.getCurrentPosition();
+        encoderTickInitialR=motorR.getCurrentPosition();
+        encoderTickInitialL=motorR.getCurrentPosition();
         headingInitial=heading;
         pitchInitial=angles.secondAngle;
         motorDrive(0);
@@ -172,6 +196,8 @@ public class AutoTest extends LinearOpMode {
         initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
     }
 
+
+    
     private void driveTime(double power, long time) throws InterruptedException {
         motorL.setPower(power);
         motorR.setPower(power);
@@ -223,9 +249,9 @@ public class AutoTest extends LinearOpMode {
     private boolean skateDist(double power, int dist){
         skate(power);
         if(dist>0){
-            return motorR.getCurrentPosition()-encoderTickInitial>dist-encoderTickInitial;
+            return motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
         }
-        return motorR.getCurrentPosition()-encoderTickInitial<dist-encoderTickInitial;
+        return motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
     }
 
 
@@ -359,7 +385,7 @@ public class AutoTest extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if(turnDegrees(.25,-45)){
+                        if(turnDegrees(.2,-25)){
                             next();
                         }
                     }
@@ -385,25 +411,18 @@ public class AutoTest extends LinearOpMode {
                         }
                     }
                     break;
+                case BACKUP:
+                    motorDrive(.5);
+                    Thread.sleep(300);
+                    next();
+                    break;
                 case GOTOWALL2:
                     skate(.6);
                     if(frontSensor.getDistance(DistanceUnit.CM)<70){
                         next();
                     }
                     break;
-                case DEPOSIT:
-                    marker.setPosition(.7);
-                    Thread.sleep(300);
 
-                    next();
-
-
-                    break;
-                case WIGGLEBACK:
-                    if(driveTicks(.6, 400)){
-                        next();
-                    }
-                    break;
                 case FACECRATER:
                     if(!ownCrater) {
                         if (turnDegrees(.4, 90)) {
@@ -414,19 +433,24 @@ public class AutoTest extends LinearOpMode {
                     }
 
                     break;
-                case DRIVECRATER:
-                    if(ownCrater){
-                        skate(-.7);
-                        if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
-                            next();
-                        }
-                    }else{
-                        skate(.7);
-                        if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
-                            next();
-                        }
 
+                case DEPOSIT:
+                    marker.setPosition(.7);
+                    Thread.sleep(300);
+
+                    next();
+
+
+                    break;
+
+
+                case DRIVECRATER:
+
+                    skate(-.7);
+                    if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
+                        next();
                     }
+
                     break;
 
                 case STOP:

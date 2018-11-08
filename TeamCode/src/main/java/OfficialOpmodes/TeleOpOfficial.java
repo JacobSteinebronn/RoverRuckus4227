@@ -105,13 +105,13 @@ public class TeleOpOfficial extends OpMode {
         powerL = Range.clip(powerL, -1, 1);
         powerR = Range.clip(powerR, -1, 1);
 
-        powerL= Scale2.scaleInput(1, powerL);
-        powerR=Scale2.scaleInput(1, powerR);
+        powerL= Scale2.scaleInput(1, gamepad1.left_bumper?powerL/2:powerL);
+        powerR= Scale2.scaleInput(1, gamepad1.left_bumper?powerR/2:powerR);
 
         motorL.setPower(powerL);
         motorR.setPower(powerR);
         if(gamepad1.a||gamepad2.a){
-            marker.setPosition(.2);
+            marker.setPosition(0);
         }
         if(gamepad1.b||gamepad2.b){
             marker.setPosition(1);
