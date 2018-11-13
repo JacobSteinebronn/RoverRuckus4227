@@ -1,4 +1,6 @@
 package ImuTesting;
+import android.util.Log;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -20,6 +22,13 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
+
+
+
+//TODO: Add full JavaDoc
+//TODO: Add full JavaDoc
+//TODO: Add full JavaDoc
+//TODO: (or at least add some comments)
 
 
 @Autonomous(name = "autoTest", group = "Auto")
@@ -57,21 +66,30 @@ public class AutoTest extends LinearOpMode {
     }
     HangState hangState=HangState.LOWER;
 
+
+    //method that dictates everything to detach from the lander. It is run by a sub-statemachine, and returns true only when
+    //the entire sub-statemachine has completed. This is to better control the flow of the detaching without clogging the main
+    //statemachine with insignificant clutter states.
     private boolean lower() throws InterruptedException{
 
         switch(hangState){
             case LOWER:
+                // Lower at 80% power
                 lifter1.setPosition(0.1);
                 lifter2.setPosition(0.1);
 
-                Thread.sleep(4000);
-                lifter1.setPosition(.5);
+                Thread.sleep(2600);
+
+                // Stop the first servo and let the other one continue
+                // This gets the hook sideways so it is easier to twist off
                 lifter2.setPosition(.5);
+                Thread.sleep(1000);
+                lifter1.setPosition(.5);
                 hangState= hangState.getNext();
 
                 break;
             case LTWIST:
-                if(turnDegrees(.3,20)){
+                if(turnDegrees(.3,15)){
                     hangState= hangState.getNext();
 
                 }
@@ -84,7 +102,8 @@ public class AutoTest extends LinearOpMode {
 
                 break;
             case RTWIST:
-                if(turnDegrees(.3,-20)) {
+                //if(turnDegrees(.3,-20)) {
+                if(true){
                     hangState = hangState.getNext();
                 }
 
@@ -94,13 +113,48 @@ public class AutoTest extends LinearOpMode {
                 return true;
         }
 
-
-
-
-
         return false;
     }
 
+    enum FarRotState{
+        ROT1,
+        DRIVEWALL,
+        ROT2,
+        STOP;
+
+        public FarRotState getNext(){
+            return this.ordinal()< FarRotState.values().length-1? FarRotState.values()[this.ordinal()+1]: FarRotState.ROT1;
+        }
+
+    }
+    FarRotState farRotState= FarRotState.ROT1;
+
+    private boolean farRot() throws InterruptedException{
+
+        switch(farRotState){
+            case ROT1:
+                if(absoluteTurnDeg(.2, 87+(startNearCrater?90:0))){
+                    farRotState=farRotState.getNext();
+                }
+                break;
+            case DRIVEWALL:
+                motorDrive(-.7);
+                if(frontSensor.getDistance(DistanceUnit.CM)<60){
+                    next();
+                }
+                break;
+            case ROT2:
+                if(turnDegrees(.3, 30)){
+                    farRotState=farRotState.getNext();
+                }
+                break;
+            case STOP:
+            default:
+                return true;
+        }
+
+        return false;
+    }
 
     enum State{
         DETACH,
@@ -111,8 +165,8 @@ public class AutoTest extends LinearOpMode {
         BACKUP,
         FACEDEPOT,
         GOTOWALL2,
-        FACECRATER,
         DEPOSIT,
+        FACECRATER,
         DRIVECRATER,
         STOP;
 
@@ -131,9 +185,9 @@ public class AutoTest extends LinearOpMode {
 
     int initialRange=10;
 
-    double angleTolerance=3.5;
+    double angleTolerance=2.6;
     int goodCounter=0;
-    int angleTimeTolerance=70;
+    int angleTimeTolerance=50;
 
 
 
@@ -179,11 +233,27 @@ public class AutoTest extends LinearOpMode {
             goodCounter++;
         }
 
-        return goodCounter>=angleTimeTolerance;
+        if(goodCounter>=angleTimeTolerance) {
+            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,angles.firstAngle));
+            Log.i("hhs4227",String.format("headingInitial %.1f goodCounter %d, angleTimeTolerance: %d",headingInitial, goodCounter, angleTimeTolerance));
+            Log.i("hhs4227",String.format("diff %.1f",diff));
+
+            return true;
+        }
+        else {
+            return false;
+        }
 
 
 
     }
+    private boolean absoluteTurnDeg (double power, int degrees) {
+        headingInitial = 0;
+        return turnDegrees(power, degrees);
+    }
+    double timeAtStart=System.currentTimeMillis()/1000;
+    double timeAtState=timeAtStart;
+
     private void next() {
 
         state=state.getNext();
@@ -194,10 +264,11 @@ public class AutoTest extends LinearOpMode {
         motorDrive(0);
         goodCounter=0;
         initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
+        Log.i("hhs4227",String.format("heading %.1f",heading)+"State: "+state);
+
+        timeAtStart=System.currentTimeMillis()/1000;
     }
 
-
-    
     private void driveTime(double power, long time) throws InterruptedException {
         motorL.setPower(power);
         motorR.setPower(power);
@@ -340,13 +411,16 @@ public class AutoTest extends LinearOpMode {
 
         waitForStart();
 
+        // TODO: IBARGUEN - Is there a reason we can't do the next 5 lines before the waitForStart()?
         telemetry.clearAll();
         composeTelemetry();
         marker.setPosition(0);
 
         angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         gravity  = imu.getGravity();
+        timeAtStart=System.currentTimeMillis()/1000;
 
+        long lastTimeLogged=System.currentTimeMillis();
 
         while(!isStopRequested()){
             updateHeading();
@@ -365,89 +439,111 @@ public class AutoTest extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    if(startHanging){
-                        if(driveTicks(.7,-500)){
-                            next();
+                    lifter2.setPosition(.9);
+                    lifter1.setPosition(.9);
 
-                        }
-
-                    }else{
-                        if(driveTicks(.7,-1100)){
-                            next();
-
-                        }
-                    }
+                    motorDrive(-.7);
+                    Thread.sleep(300);
+                    next();
 
                     break;
                 case FACEWALL:
+                    //headingInitial = 0;
                     if(startNearCrater){
-                        if(turnDegrees(.2,90)){
+                        if(absoluteTurnDeg(.2,70)){
+                            Log.i("hhs4227",String.format("FACEWALL nearCrater"));
                             next();
                         }
                     }else{
-                        if(turnDegrees(.2,-25)){
+                        if(absoluteTurnDeg(.2,-45)){
+                            Log.i("hhs4227",String.format("FACEWALL farCrater"));
                             next();
                         }
                     }
                     break;
                 case DELAYTIME:
                     Thread.sleep((int)(timeDelay*1000));
+                    Log.i("hhs4227",String.format("DELAYTIME"));
                     next();
                     break;
                 case GOTOWALL:
                     motorDrive(-.7);
                     if(frontSensor.getDistance(DistanceUnit.CM)<30){
+                        Log.i("hhs4227",String.format("GOTOWALL"));
                         next();
                     }
+                    break;
+                case BACKUP:
+                    lifter2.setPosition(.5);
+                    lifter1.setPosition(.5);
+                    next();
                     break;
                 case FACEDEPOT:
                     if(startNearCrater) {
                         if (turnDegrees(.2, 45)) {
+                            Log.i("hhs4227",String.format("FACEDEPOT nearcrater"));
                             next();
                         }
                     }else{
                         if (turnDegrees(.2, 90)) {
+                            Log.i("hhs4227",String.format("FACEDEPOT farcrater"));
                             next();
                         }
                     }
                     break;
-                case BACKUP:
-                    motorDrive(.5);
-                    Thread.sleep(300);
-                    next();
-                    break;
+
                 case GOTOWALL2:
                     skate(.6);
-                    if(frontSensor.getDistance(DistanceUnit.CM)<70){
+
+                    if(System.currentTimeMillis()-lastTimeLogged>500){
+                        lastTimeLogged=System.currentTimeMillis();
+                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+
+                    }
+//                    if(System.currentTimeMillis()%500<100){
+//                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+//                    }
+
+                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<30){
+                        Log.i("hhs4227", "End!!! Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+
                         next();
                     }
-                    break;
-
-                case FACECRATER:
-                    if(!ownCrater) {
-                        if (turnDegrees(.4, 90)) {
-                            next();
-                        }
-                    }else{
-                        next();
-                    }
-
                     break;
 
                 case DEPOSIT:
                     marker.setPosition(.7);
                     Thread.sleep(300);
-
+                    motorDrive(.7);
+                    Thread.sleep(800);
                     next();
 
 
                     break;
 
+                case FACECRATER:
+                    if(!ownCrater) {
+                        if(farRot()){
+                            next();
+                        }
+                    }else{
+                        next();
+                    }
+
+                    break;
+
+
+
 
                 case DRIVECRATER:
 
-                    skate(-.7);
-                    if(angles.secondAngle-pitchInitial>2||angles.secondAngle-pitchInitial<-2){
+                    if(!ownCrater){
+                        skate(.6);
+                    }else {
+                        skate(-.7);
+                    }
+                    int diff=Math.abs(motorR.getCurrentPosition()-encoderTickInitialR);
+                    if(angles.secondAngle-pitchInitial>5||angles.secondAngle-pitchInitial<-5||diff>4500){
                         next();
                     }
 
@@ -455,6 +551,7 @@ public class AutoTest extends LinearOpMode {
 
                 case STOP:
                 default:
+                    telemetry.update();
                     requestOpModeStop();
 
             }
@@ -468,12 +565,15 @@ public class AutoTest extends LinearOpMode {
     }
 
     double heading;
-    Orientation             lastAngles = new Orientation();
+    Orientation lastAngles = new Orientation();
     private double updateHeading() {
 
-
+        // How much has the angle changed since the last check?
         double deltaAngle = angles.firstAngle - lastAngles.firstAngle;
 
+        // This will make sure that the deltaAngle is never more than 180
+        // degrees in either direction.  What is the purpose of this?
+        // TODO: This won't work if the deltaAngle is really big
         if (deltaAngle < -180)
             deltaAngle += 360;
         else if (deltaAngle > 180)
@@ -533,9 +633,13 @@ public class AutoTest extends LinearOpMode {
         telemetry.addLine()
                 .addData("State: ", new Func<String>() {
                     @Override public String value() {
-                        if(state!=State.DETACH)
-                            return state+"";
-                        return "DETACH: "+hangState;
+                        if(state==State.DETACH)
+                            return "DETACH: "+hangState;
+                        if(state==State.FACECRATER){
+                            return "FACECRATER: "+farRotState;
+                        }
+                        return state+"";
+
                     }
                 })
                 .addData("mag", new Func<String>() {

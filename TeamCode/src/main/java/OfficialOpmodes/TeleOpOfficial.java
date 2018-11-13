@@ -90,12 +90,24 @@ public class TeleOpOfficial extends OpMode {
     boolean rightBumper;
     boolean leftBumper;
 
+
+    boolean a1=false;
+
+
+
+    boolean slowMode=false;
+
     double powerL;
     double powerR;
     @Override
     public void loop() {
         telemetry.update();
 
+        if(gamepad1.a){a1=true;}
+        else if(a1){
+            a1=false;
+            slowMode=!slowMode;
+        }
 
 
         powerL = gamepad1.right_stick_y;
@@ -105,29 +117,57 @@ public class TeleOpOfficial extends OpMode {
         powerL = Range.clip(powerL, -1, 1);
         powerR = Range.clip(powerR, -1, 1);
 
-        powerL= Scale2.scaleInput(1, gamepad1.left_bumper?powerL/2:powerL);
-        powerR= Scale2.scaleInput(1, gamepad1.left_bumper?powerR/2:powerR);
+        powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL);
+        powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR);
 
-        motorL.setPower(powerL);
-        motorR.setPower(powerR);
-        if(gamepad1.a||gamepad2.a){
-            marker.setPosition(0);
+
+        double liftL=gamepad2.right_stick_y;
+        double liftR=gamepad2.left_stick_y;
+
+//        liftL/=2;
+//        liftR/=2;
+//        liftL+=0.5;
+//        liftR+=0.5;
+//        lifter1.setPosition(liftL);
+//        lifter2.setPosition(liftR);
+
+
+
+
+        motorL.setPower(powerL);                                     
+        motorR.setPower(powerR);                                     
+        if(gamepad1.a||gamepad2.a){                                  
+            marker.setPosition(0);                                   
+        }                                                            
+        if(gamepad1.b||gamepad2.b){                                  
+            marker.setPosition(1);                                   
+                                                                     
         }
-        if(gamepad1.b||gamepad2.b){
-            marker.setPosition(1);
-
-        }
-
-        if(gamepad1.dpad_up||gamepad2.dpad_up){
+        if(gamepad1.dpad_up||gamepad2.dpad_up||gamepad2.right_stick_y<-.5)
             lifter1.setPosition(.1);
-            lifter2.setPosition(.1);
-        }else if(gamepad1.dpad_down||gamepad2.dpad_down){
+        else if(gamepad1.dpad_down||gamepad2.dpad_down||gamepad2.right_stick_y>.5)
             lifter1.setPosition(.9);
+        else
+            lifter1.setPosition(.5);
+
+        if(gamepad1.dpad_up||gamepad2.dpad_up||gamepad2.left_stick_y<-.5)
+            lifter2.setPosition(.1);
+        else if(gamepad1.dpad_down||gamepad2.dpad_down||gamepad2.left_stick_y>.5)
             lifter2.setPosition(.9);
-        }else{
-            lifter1.setPosition(0);
-            lifter2.setPosition(0);
-        }
+        else
+            lifter2.setPosition(.5);
+
+
+//        if(gamepad1.dpad_up||gamepad2.dpad_up){
+//            lifter1.setPosition(.1);
+//            lifter2.setPosition(.1);
+//        }else if(gamepad1.dpad_down||gamepad2.dpad_down){
+//            lifter1.setPosition(.9);
+//            lifter2.setPosition(.9);
+//        }else{
+//            lifter1.setPosition(0);
+//            lifter2.setPosition(0);
+//        }
 
     }
 

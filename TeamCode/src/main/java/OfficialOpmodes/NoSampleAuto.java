@@ -1,14 +1,15 @@
 package OfficialOpmodes;
+import android.util.Log;
+
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.sun.tools.javac.comp.Lower;
+import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -22,16 +23,22 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
-/**
- * Created by hhs-robotics on 8/1/2018.
- */
 
-@Autonomous(name = "AutoNoSample", group = "Auto")
+
+//TODO: Add full JavaDoc
+//TODO: Add full JavaDoc
+//TODO: Add full JavaDoc
+//TODO: (or at least add some comments)
+
+
+@Autonomous(name = "OfficialAuto", group = "OfficialOpmodes")
 public class NoSampleAuto extends LinearOpMode {
     public DcMotor motorL;
     public DcMotor motorR;
-    public Servo lServo;
-    public Servo rServo;
+    public Servo lifter1;
+    public Servo lifter2;
+
+
     public DistanceSensor sideRange1;
     public DistanceSensor sideRange2;
     public DistanceSensor frontSensor;
@@ -42,26 +49,14 @@ public class NoSampleAuto extends LinearOpMode {
     Orientation angles;
     Acceleration gravity;
 
-    enum InitState {
-        HANGING,
-        STARTPOS,
-        DELAY,
-        CRATER,
-        READY;
 
 
-        public InitState getNext(){
-            return this.ordinal()<InitState.values().length-1?InitState.values()[this.ordinal()+1]:InitState.READY;
-        }
-    }
-    InitState initState=InitState.HANGING;
 
     enum HangState{
         LOWER,
         LTWIST,
         WIGGLE,
         RTWIST,
-        WIGGLE2,
         STOP;
 
         public HangState getNext(){
@@ -71,57 +66,95 @@ public class NoSampleAuto extends LinearOpMode {
     }
     HangState hangState=HangState.LOWER;
 
+
+    //method that dictates everything to detach from the lander. It is run by a sub-statemachine, and returns true only when
+    //the entire sub-statemachine has completed. This is to better control the flow of the detaching without clogging the main
+    //statemachine with insignificant clutter states.
     private boolean lower() throws InterruptedException{
 
         switch(hangState){
             case LOWER:
-                lServo.setPosition(.1);
-                rServo.setPosition(.1);
+                // Lower at 80% power
+                lifter1.setPosition(0.1);
+                lifter2.setPosition(0.1);
 
-                Thread.sleep(2500);
-                lServo.setPosition(.5);
-                rServo.setPosition(.5);
+                Thread.sleep(2400);
+
+                // Stop the first servo and let the other one continue
+                // This gets the hook sideways so it is easier to twist off
+                lifter2.setPosition(.5);
+                Thread.sleep(1000);
+                lifter1.setPosition(.5);
                 hangState= hangState.getNext();
 
                 break;
             case LTWIST:
-                if(turnDegrees(.3,-20)){
+                if(turnDegrees(.3,15)){
                     hangState= hangState.getNext();
 
                 }
                 break;
             case WIGGLE:
-                if(driveTicks(.4,200)){
-                    hangState= hangState.getNext();
+                motorDrive(-.7);
+                Thread.sleep(300);
+                hangState= hangState.getNext();
 
-                }
+
                 break;
             case RTWIST:
-                if(turnDegrees(.3,20)) {
+                //if(turnDegrees(.3,-20)) {
+                if(true){
                     hangState = hangState.getNext();
                 }
 
                 break;
-            case WIGGLE2:
-                if(driveTicks(.4,200)){
-                    hangState= hangState.getNext();
-
-                }
-
-                break;
-
             case STOP:
             default:
                 return true;
         }
 
-
-
-
-
         return false;
     }
 
+    enum FarRotState{
+        ROT1,
+        DRIVEWALL,
+        ROT2,
+        STOP;
+
+        public FarRotState getNext(){
+            return this.ordinal()< FarRotState.values().length-1? FarRotState.values()[this.ordinal()+1]: FarRotState.ROT1;
+        }
+
+    }
+    FarRotState farRotState= FarRotState.ROT1;
+
+    private boolean farRot() throws InterruptedException{
+
+        switch(farRotState){
+            case ROT1:
+                if(absoluteTurnDeg(.2, 87+(startNearCrater?90:0))){
+                    farRotState=farRotState.getNext();
+                }
+                break;
+            case DRIVEWALL:
+                motorDrive(-.7);
+                if(frontSensor.getDistance(DistanceUnit.CM)<60){
+                    next();
+                }
+                break;
+            case ROT2:
+                if(turnDegrees(.3, 30)){
+                    farRotState=farRotState.getNext();
+                }
+                break;
+            case STOP:
+            default:
+                return true;
+        }
+
+        return false;
+    }
 
     enum State{
         DETACH,
@@ -129,6 +162,7 @@ public class NoSampleAuto extends LinearOpMode {
         FACEWALL,
         DELAYTIME,
         GOTOWALL,
+        BACKUP,
         FACEDEPOT,
         GOTOWALL2,
         DEPOSIT,
@@ -143,14 +177,19 @@ public class NoSampleAuto extends LinearOpMode {
     }
     State state=State.DETACH;
 
-    int encoderTickInitial=0;
+    int encoderTickInitialR=0;
+    int encoderTickInitialL=0;
+
     double headingInitial=0;
+    double pitchInitial=0;
 
     int initialRange=10;
 
-    double angleTolerance=3;
+    double angleTolerance=2.6;
     int goodCounter=0;
-    int angleTimeTolerance=1000;
+    int angleTimeTolerance=50;
+
+
 
     void motorDrive(double power){
         motorL.setPower(-power);
@@ -158,12 +197,28 @@ public class NoSampleAuto extends LinearOpMode {
 
     }
     private boolean driveTicks(double power, int ticks){
-        motorDrive((ticks>0?1:-1)*power);
-        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitial>=ticks:motorR.getCurrentPosition()-encoderTickInitial<=ticks);
+        double lPower=power;
+        double rPower=power;
+
+
+        int tickChangeR=motorR.getCurrentPosition()-encoderTickInitialR;
+        int tickChangeL=motorL.getCurrentPosition()-encoderTickInitialL;
+
+        if(tickChangeR-tickChangeL-50>0)
+            rPower/=2;
+        if(tickChangeL-tickChangeR-50>0)
+            lPower/=2;
+
+        if(ticks<0){lPower*=-1;rPower*=-1;}
+
+        motorR.setPower(rPower);
+        motorL.setPower(-lPower);
+
+        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitialR>=ticks:motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
     }
 
     private boolean turnDegrees(double power, int degrees){
-        double diff=(double)angles.firstAngle-headingInitial-degrees;
+        double diff=heading-headingInitial-degrees;
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
@@ -178,19 +233,40 @@ public class NoSampleAuto extends LinearOpMode {
             goodCounter++;
         }
 
-        return goodCounter>=angleTimeTolerance;
+        if(goodCounter>=angleTimeTolerance) {
+            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,angles.firstAngle));
+            Log.i("hhs4227",String.format("headingInitial %.1f goodCounter %d, angleTimeTolerance: %d",headingInitial, goodCounter, angleTimeTolerance));
+            Log.i("hhs4227",String.format("diff %.1f",diff));
 
-        //return (degrees>0?(double)angles.firstAngle-headingInitial>=degrees:(double)angles.firstAngle-headingInitial<=degrees);
+            return true;
+        }
+        else {
+            return false;
+        }
+
 
 
     }
+    private boolean absoluteTurnDeg (double power, int degrees) {
+        headingInitial = 0;
+        return turnDegrees(power, degrees);
+    }
+    double timeAtStart=System.currentTimeMillis()/1000;
+    double timeAtState=timeAtStart;
+
     private void next() {
+
         state=state.getNext();
-        encoderTickInitial=motorR.getCurrentPosition();
-        headingInitial=(double)angles.firstAngle;
+        encoderTickInitialR=motorR.getCurrentPosition();
+        encoderTickInitialL=motorR.getCurrentPosition();
+        headingInitial=heading;
+        pitchInitial=angles.secondAngle;
         motorDrive(0);
         goodCounter=0;
         initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
+        Log.i("hhs4227",String.format("heading %.1f",heading)+"State: "+state);
+
+        timeAtStart=System.currentTimeMillis()/1000;
     }
 
     private void driveTime(double power, long time) throws InterruptedException {
@@ -216,9 +292,9 @@ public class NoSampleAuto extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r-=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r-=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -228,9 +304,9 @@ public class NoSampleAuto extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r-=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r-=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -240,26 +316,22 @@ public class NoSampleAuto extends LinearOpMode {
 
 
     }
+
     private boolean skateDist(double power, int dist){
         skate(power);
         if(dist>0){
-            return motorR.getCurrentPosition()-encoderTickInitial>dist-encoderTickInitial;
+            return motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
         }
-        return motorR.getCurrentPosition()-encoderTickInitial<dist-encoderTickInitial;
+        return motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
     }
 
-    private void turn(double powerL, double powerR, long time) throws InterruptedException{
-        motorL.setPower(powerL);
-        motorR.setPower(powerR);
-        Thread.sleep(time);
-        motorL.setPower(0);
-        motorR.setPower(0);
-    }
+
+
 
     //TODO:=============================================================================================
     boolean startHanging=true;
     boolean startNearCrater=true;
-    boolean redCrater=true;
+    boolean ownCrater =true;
     double timeDelay=.5;
 //TODO:=============================================================================================
 
@@ -267,16 +339,16 @@ public class NoSampleAuto extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         motorL = hardwareMap.get(DcMotor.class, "leftMotor");
         motorR = hardwareMap.get(DcMotor.class, "rightMotor");
-        lServo=hardwareMap.get(Servo.class,"lServo");
-        rServo=hardwareMap.get(Servo.class,"rServo");
+
+        lifter1=hardwareMap.get(Servo.class,"lifter1");
+        lifter2=hardwareMap.get(Servo.class,"lifter2");
 
         marker=hardwareMap.get(Servo.class, "marker");
 
 
-        lServo.setDirection(Servo.Direction.REVERSE);
-        rServo.setDirection(Servo.Direction.FORWARD);
+        lifter1.setDirection(Servo.Direction.REVERSE);
+        lifter2.setDirection(Servo.Direction.FORWARD);
 
-        //sensor1=hardwareMap.get(DistanceSensor.class, "s1");
         frontSensor=hardwareMap.get(DistanceSensor.class, "front");
         sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
         sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
@@ -300,116 +372,59 @@ public class NoSampleAuto extends LinearOpMode {
         imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
 
 
-        boolean selection=false;
+
         boolean dDown=false;
         boolean dUp=false;
         boolean aDown=false;
+        boolean bDown=false;
+        boolean xDown=false;
 
         boolean isReady=false;
 
-        while(!isStarted()){
+        composeTelemetry2();
 
+        while(!isStarted()||!isReady){
+            telemetry.update();
             if(gamepad1.dpad_down){dDown=true;}
             if(gamepad1.dpad_up){dUp=true;}
             if(gamepad1.a){aDown=true;}
-/*
-            switch(initState){
-                case HANGING:
-                    telemetry.clearAll();
-                    telemetry.addData("Start Hanging?","");
-                    telemetry.addData("Yes",selection?"<":" ");
-                    telemetry.addData("No",!selection?"<":" ");
-                    if(!gamepad1.dpad_down&&dDown){
-                        selection=!selection;
-                        dDown=false;
-                    }
-                    if(!gamepad1.dpad_up&&dUp){
-                        dUp=false;
-                        selection=!selection;
-                    }
-                    if(!gamepad1.a&&aDown){
-                        aDown=false;
-                        initState=initState.getNext();
-                        startHanging=selection;
-                    }
+            if(gamepad1.b){bDown=true;}
+            if(gamepad1.x){xDown=true;}
 
-                    break;
-                case DELAY:
-                    telemetry.clearAll();
-                    telemetry.addData("Set Delay(Seconds)","");
-                    telemetry.addData("Delay time:",timeDelay);
-                    if(!gamepad1.dpad_down&&dDown){
-                        timeDelay--;
-                        dDown=false;
-                    }
-                    if(!gamepad1.dpad_up&&dUp){
-                        dUp=false;
-                        timeDelay++;
-                    }
-                    if(!gamepad1.a&&aDown){
-                        aDown=false;
-                        initState=initState.getNext();
-                    }
+            if(!gamepad1.dpad_down&&dDown){dDown=false;timeDelay-=.5;timeDelay=Math.abs(timeDelay);}
+            if(!gamepad1.dpad_up&&dUp){dUp=false;timeDelay+=.5;}
+            if(!gamepad1.a&&aDown){aDown=false;startHanging=!startHanging;}
+            if(!gamepad1.b&&bDown){bDown=false;startNearCrater=!startNearCrater;}
+            if(!gamepad1.x&&xDown){xDown=false;ownCrater=!ownCrater;}
 
-                    break;
-                case STARTPOS:
-                    telemetry.clearAll();
-                    telemetry.addData("Start facing crater?","");
-                    telemetry.addData("Yes",selection?"<":" ");
-                    telemetry.addData("No",!selection?"<":" ");
-                    if(!gamepad1.dpad_down&&dDown){
-                        selection=!selection;
-                        dDown=false;
-                    }
-                    if(!gamepad1.dpad_up&&dUp){
-                        dUp=false;
-                        selection=!selection;
-                    }
-                    if(!gamepad1.a&&aDown){
-                        aDown=false;
-                        initState=initState.getNext();
-                        startNearCrater=selection;
-                    }
-                    break;
-                case CRATER:
-                    telemetry.clearAll();
-                    telemetry.addData("Aim for own crater?","");
-                    telemetry.addData("Yes",selection?"<":" ");
-                    telemetry.addData("No",!selection?"<":" ");
-                    if(!gamepad1.dpad_down&&dDown){
-                        selection=!selection;
-                        dDown=false;
-                    }
-                    if(!gamepad1.dpad_up&&dUp){
-                        dUp=false;
-                        selection=!selection;
-                    }
-                    if(!gamepad1.a&&aDown){
-                        aDown=false;
-                        initState=initState.getNext();
-                        redCrater=selection;
-                    }
-                    break;
-                case READY:
-                default:
-                    isReady=true;
-                    break;
+            if(gamepad1.y){
 
-
+                isReady=true;
+                telemetry.clearAll();
+                readyTelemetry();
+                telemetry.update();
+                break;
             }
-            */
+
+
         }
 
         waitForStart();
 
+        // TODO: IBARGUEN - Is there a reason we can't do the next 5 lines before the waitForStart()?
+        telemetry.clearAll();
         composeTelemetry();
-        marker.setPosition(1.1);
+        marker.setPosition(0);
+
+        angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        gravity  = imu.getGravity();
+        timeAtStart=System.currentTimeMillis()/1000;
+
+        long lastTimeLogged=System.currentTimeMillis();
 
         while(!isStopRequested()){
+            updateHeading();
             telemetry.update();
-
-
-
 
             switch(state){
                 case DETACH:
@@ -424,61 +439,93 @@ public class NoSampleAuto extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    if(driveTicks(.7,-1500)){
-                        next();
+                    lifter2.setPosition(.9);
+                    lifter1.setPosition(.9);
 
-                    }
+                    motorDrive(-.7);
+                    if(!startHanging&&startNearCrater)
+                        Thread.sleep(500);
+                    Thread.sleep(300);
+                    next();
+
                     break;
                 case FACEWALL:
+                    //headingInitial = 0;
                     if(startNearCrater){
-                        if(turnDegrees(.3,90)){
+                        if(absoluteTurnDeg(.2,70)){
+                            Log.i("hhs4227",String.format("FACEWALL nearCrater"));
                             next();
                         }
                     }else{
-                        if(turnDegrees(.25,-45)){
+                        if(absoluteTurnDeg(.2,-45)){
+                            Log.i("hhs4227",String.format("FACEWALL farCrater"));
                             next();
                         }
                     }
                     break;
                 case DELAYTIME:
                     Thread.sleep((int)(timeDelay*1000));
+                    Log.i("hhs4227",String.format("DELAYTIME"));
                     next();
                     break;
                 case GOTOWALL:
                     motorDrive(-.7);
                     if(frontSensor.getDistance(DistanceUnit.CM)<30){
+                        Log.i("hhs4227",String.format("GOTOWALL"));
                         next();
                     }
+                    break;
+                case BACKUP:
+                    lifter2.setPosition(.5);
+                    lifter1.setPosition(.5);
+                    next();
                     break;
                 case FACEDEPOT:
                     if(startNearCrater) {
-                        if (turnDegrees(.3, 45)) {
+                        if (turnDegrees(.2, 55)) {
+                            Log.i("hhs4227",String.format("FACEDEPOT nearcrater"));
                             next();
                         }
                     }else{
-                        if (turnDegrees(.3, 90)) {
+                        if (turnDegrees(.2, 90)) {
+                            Log.i("hhs4227",String.format("FACEDEPOT farcrater"));
                             next();
                         }
                     }
                     break;
+
                 case GOTOWALL2:
                     skate(.6);
-                    if(frontSensor.getDistance(DistanceUnit.CM)<70){
+
+                    if(System.currentTimeMillis()-lastTimeLogged>500){
+                        lastTimeLogged=System.currentTimeMillis();
+                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+
+                    }
+//                    if(System.currentTimeMillis()%500<100){
+//                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+//                    }
+
+                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<30){
+                        Log.i("hhs4227", "End!!! Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+
                         next();
                     }
                     break;
+
                 case DEPOSIT:
-                    marker.setPosition(.2);
-                    Thread.sleep(1000);
-                    imu.initialize(parameters);
-                    imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+                    marker.setPosition(.7);
+                    Thread.sleep(300);
+                    motorDrive(.7);
+                    Thread.sleep(800);
                     next();
 
 
                     break;
+
                 case FACECRATER:
-                    if(!redCrater) {
-                        if (turnDegrees(.4, 90)) {
+                    if(!ownCrater) {
+                        if(farRot()){
                             next();
                         }
                     }else{
@@ -486,21 +533,27 @@ public class NoSampleAuto extends LinearOpMode {
                     }
 
                     break;
+
+
+
+
                 case DRIVECRATER:
-                    if(redCrater){
-                        skate(-.7);
-                        if(angles.secondAngle>5||angles.secondAngle<-5){
-                            next();
-                        }
-                    }else{
-                        skate(.7);
-                        next();
-                        //TODO: FIX MEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 
+                    if(!ownCrater){
+                        skate(.6);
+                    }else {
+                        skate(-.7);
                     }
+                    int diff=Math.abs(motorR.getCurrentPosition()-encoderTickInitialR);
+                    if(angles.secondAngle-pitchInitial>5||angles.secondAngle-pitchInitial<-5||diff>4500){
+                        next();
+                    }
+
                     break;
+
                 case STOP:
                 default:
+                    telemetry.update();
                     requestOpModeStop();
 
             }
@@ -513,10 +566,30 @@ public class NoSampleAuto extends LinearOpMode {
 
     }
 
+    double heading;
+    Orientation lastAngles = new Orientation();
+    private double updateHeading() {
 
+        // How much has the angle changed since the last check?
+        double deltaAngle = angles.firstAngle - lastAngles.firstAngle;
 
+        // This will make sure that the deltaAngle is never more than 180
+        // degrees in either direction.  What is the purpose of this?
+        // TODO: This won't work if the deltaAngle is really big
+        if (deltaAngle < -180)
+            deltaAngle += 360;
+        else if (deltaAngle > 180)
+            deltaAngle -= 360;
+
+        heading += deltaAngle;
+
+        lastAngles = angles;
+
+        return heading;
+    }
 
     void composeTelemetry() {
+        telemetry.clearAll();
 
         // At the beginning of each telemetry update, grab a bunch of data
         // from the IMU that we will then display in separate lines.
@@ -545,7 +618,7 @@ public class NoSampleAuto extends LinearOpMode {
         telemetry.addLine()
                 .addData("heading", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(angles.angleUnit, angles.firstAngle);
+                        return heading+"";
                     }
                 })
                 .addData("roll", new Func<String>() {
@@ -562,7 +635,13 @@ public class NoSampleAuto extends LinearOpMode {
         telemetry.addLine()
                 .addData("State: ", new Func<String>() {
                     @Override public String value() {
+                        if(state==State.DETACH)
+                            return "DETACH: "+hangState;
+                        if(state==State.FACECRATER){
+                            return "FACECRATER: "+farRotState;
+                        }
                         return state+"";
+
                     }
                 })
                 .addData("mag", new Func<String>() {
@@ -589,13 +668,83 @@ public class NoSampleAuto extends LinearOpMode {
                     @Override public String value() {
                         return goodCounter+"/"+angleTimeTolerance;
                     }
-                })
-                .addData("AngleDistance", new Func<String>() {
+                });
+    }
+
+    String line1="Initializing Autonomous... Press <Y> to finish!";
+    String line2="<A> Start hanging?";
+    String line3="<X> End at own crater? ";
+    String line4="<B> Start near crater? ";
+    String line5="<DPAD> Delay time ";
+
+    void composeTelemetry2() {
+        telemetry.clearAll();
+        // At the beginning of each telemetry update, grab a bunch of data
+        // from the IMU that we will then display in separate lines.
+        telemetry.addAction(new Runnable() { @Override public void run()
+        {
+            // Acquiring the angles is relatively expensive; we don't want
+            // to do that in each of the three items that need that info, as that's
+            // three times the necessary expense.
+
+        }
+        });
+
+        telemetry.addLine()
+                .addData(line1, new Func<String>() {
                     @Override public String value() {
-                        return Math.abs((double)angles.firstAngle-headingInitial-45)+"";
+                        return "";
+                    }
+                });
+        telemetry.addLine();
+        telemetry.addLine()
+                .addData(line2, new Func<String>() {
+                    @Override public String value() {
+                        return startHanging?"Yes":"No";
+                    }
+                });
+        telemetry.addLine()
+                .addData(line3, new Func<String>() {
+                    @Override public String value() {
+
+                        return ownCrater?"Yes":"No";
+
+                    }
+                });
+        telemetry.addLine()
+                .addData(line4, new Func<String>() {
+                    @Override public String value() {
+                        return startNearCrater?"Yes":"No";
+                    }
+                });
+        telemetry.addLine()
+                .addData(line5, new Func<String>() {
+                    @Override public String value() {
+                        return timeDelay+"";
+                    }
+                });
+
+
+    }
+    void readyTelemetry(){
+        telemetry.clearAll();
+        // At the beginning of each telemetry update, grab a bunch of data
+        // from the IMU that we will then display in separate lines.
+        telemetry.addAction(new Runnable() { @Override public void run()
+        {
+
+
+        }
+        });
+
+        telemetry.addLine()
+                .addData("Autonomous ready!", new Func<String>() {
+                    @Override public String value() {
+                        return "";
                     }
                 });
     }
+
     String formatAngle(AngleUnit angleUnit, double angle) {
         return formatDegrees(AngleUnit.DEGREES.fromUnit(angleUnit, angle));
     }
