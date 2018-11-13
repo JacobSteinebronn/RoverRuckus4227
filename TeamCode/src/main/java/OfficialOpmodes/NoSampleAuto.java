@@ -140,7 +140,7 @@ public class NoSampleAuto extends LinearOpMode {
             case DRIVEWALL:
                 motorDrive(-.7);
                 if(frontSensor.getDistance(DistanceUnit.CM)<60){
-                    next();
+                    farRotState=farRotState.getNext();
                 }
                 break;
             case ROT2:
