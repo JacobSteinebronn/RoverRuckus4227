@@ -4,13 +4,13 @@ import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
+//import com.qualcomm.robotcore.hardware.DcMotorSimple;
+//import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
-import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
+//import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
@@ -25,21 +25,22 @@ import Helpers.Scale2;
 @TeleOp(name = "Teleop", group = "OfficialOpmodes")
 public class TeleOpOfficial extends OpMode {
 
+
     public DcMotor motorL;
     public DcMotor motorR;
-    public Servo lifter1;
-    public Servo lifter2;
+    private  Servo lifter1;
+    private  Servo lifter2;
 
 
-    public DistanceSensor sideRange1;
-    public DistanceSensor sideRange2;
-    public DistanceSensor frontSensor;
-    public Servo marker;
+//    private DistanceSensor sideRange1;
+//    private DistanceSensor sideRange2;
+//    private DistanceSensor frontSensor;
+    private  Servo marker;
 
-    BNO055IMU imu;
+    private BNO055IMU imu;
 
-    Orientation angles;
-    Acceleration gravity;
+    private Orientation angles;
+    //private Acceleration gravity;
 
 
     @Override
@@ -58,18 +59,15 @@ public class TeleOpOfficial extends OpMode {
         lifter1.setDirection(Servo.Direction.REVERSE);
         lifter2.setDirection(Servo.Direction.FORWARD);
 
-        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
-        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
-        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
+//        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+//        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+//        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
 
         motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
         motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-        motorL.setDirection(DcMotorSimple.Direction.REVERSE);
-        motorR.setDirection(DcMotorSimple.Direction.REVERSE);
 
         imu = hardwareMap.get(BNO055IMU.class, "imu");
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
@@ -89,21 +87,16 @@ public class TeleOpOfficial extends OpMode {
 
 
     }
-    boolean aWasPressed;
-    boolean leftPressed;
-    boolean rightPressed;
-    boolean rightBumper;
-    boolean leftBumper;
 
 
-    boolean a1=false;
+    private boolean a1=false;
 
 
 
-    boolean slowMode=false;
+    private boolean slowMode=false;
 
-    double powerL;
-    double powerR;
+    private double powerL;
+    private double powerR;
     @Override
     public void loop() {
         telemetry.update();
@@ -125,22 +118,9 @@ public class TeleOpOfficial extends OpMode {
         powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL);
         powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR);
 
+        motorL.setPower(-powerL);
+        motorR.setPower(-powerR);
 
-        double liftL=gamepad2.right_stick_y;
-        double liftR=gamepad2.left_stick_y;
-
-//        liftL/=2;
-//        liftR/=2;
-//        liftL+=0.5;
-//        liftR+=0.5;
-//        lifter1.setPosition(liftL);
-//        lifter2.setPosition(liftR);
-
-
-
-
-        motorL.setPower(powerL);                                     
-        motorR.setPower(powerR);                                     
         if(gamepad1.a||gamepad2.a){                                  
             marker.setPosition(0);                                   
         }                                                            
@@ -176,7 +156,7 @@ public class TeleOpOfficial extends OpMode {
 
     }
 
-    void composeTelemetry() {
+    private void composeTelemetry() {
 
         // At the beginning of each telemetry update, grab a bunch of data
         // from the IMU that we will then display in separate lines.
@@ -186,12 +166,12 @@ public class TeleOpOfficial extends OpMode {
             // to do that in each of the three items that need that info, as that's
             // three times the necessary expense.
             angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            gravity  = imu.getGravity();
+            //gravity  = imu.getGravity();
         }
         });
 
         telemetry.addLine()
-                .addData("Gamepad L/R:", new Func<String>() {
+                .addData("GamePad L/R:", new Func<String>() {
                     @Override public String value() {
                         return gamepad1.left_stick_y+"/"+gamepad1.right_stick_y;
                     }
@@ -220,12 +200,12 @@ public class TeleOpOfficial extends OpMode {
                 });
 
         telemetry.addLine()
-                .addData("scaleinput L/R", new Func<String>() {
+                .addData("scaleInput L/R", new Func<String>() {
                     @Override public String value() {
                         return Scale2.scaleInput(1, gamepad1.left_stick_y)+"/"+Scale2.scaleInput(1, gamepad1.right_stick_y);
                     }
                 })
-                .addData("scaleinput of .5", new Func<String>() {
+                .addData("scaleInput of .5", new Func<String>() {
                     @Override public String value() {
                         return ""+Scale2.scaleInput(1, .5);
                     }
@@ -247,11 +227,11 @@ public class TeleOpOfficial extends OpMode {
     // Formatting jasffkgjjaofigjl
     //----------------------------------------------------------------------------------------------
 
-    String formatAngle(AngleUnit angleUnit, double angle) {
+    private String formatAngle(AngleUnit angleUnit, double angle) {
         return formatDegrees(AngleUnit.DEGREES.fromUnit(angleUnit, angle));
     }
 
-    String formatDegrees(double degrees){
+    private String formatDegrees(double degrees){
         return String.format(Locale.getDefault(), "%.1f", AngleUnit.DEGREES.normalize(degrees));
     }
 

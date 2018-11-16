@@ -7,12 +7,14 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 
+import OfficialOpmodes.TeleOpOfficial;
+
 /**
  * Created by hhs-robotics on 8/1/2018.
  */
 @Disabled
 @Autonomous(name = "AutoRi3d", group = "Auto")
-public class AutoRi3d extends LinearOpMode {
+public class AutoRi3d extends TeleOpOfficial {
 
     DcMotor motorL;
     DcMotor motorR;
@@ -36,7 +38,6 @@ public class AutoRi3d extends LinearOpMode {
         motorL.setPower(0);
         motorR.setPower(0);
     }
-    @Override
     public void runOpMode() throws InterruptedException {
         motorL = hardwareMap.get(DcMotor.class, "leftMotor");
         motorR = hardwareMap.get(DcMotor.class, "rightMotor");
@@ -49,7 +50,6 @@ public class AutoRi3d extends LinearOpMode {
 
         motorR.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        waitForStart();
 
         lServo.setPosition(.1);
         rServo.setPosition(.1);
