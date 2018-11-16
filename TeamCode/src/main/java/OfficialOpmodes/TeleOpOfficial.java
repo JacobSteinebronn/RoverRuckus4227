@@ -4,6 +4,7 @@ import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
@@ -66,6 +67,10 @@ public class TeleOpOfficial extends OpMode {
 
         motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        motorL.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorR.setDirection(DcMotorSimple.Direction.REVERSE);
+
         imu = hardwareMap.get(BNO055IMU.class, "imu");
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
         parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
