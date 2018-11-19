@@ -4,6 +4,7 @@ import android.util.Log;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -30,8 +31,8 @@ import java.util.Locale;
 //TODO: Add full JavaDoc
 //TODO: (or at least add some comments)
 
-
-@Autonomous(name = "OfficialAuto", group = "OfficialOpmodes")
+@Disabled
+@Autonomous(name = "JacobAuto", group = "OfficialOpmodes")
 public class JacobAuto extends LinearOpMode {
     public DcMotor motorL;
     public DcMotor motorR;
