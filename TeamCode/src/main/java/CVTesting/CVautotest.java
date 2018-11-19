@@ -173,6 +173,7 @@ public class CVautotest extends LinearOpMode {
         BACKUP,
         FACEDEPOT,
         GOTOWALL2,
+        PREPDEPOSIT,
         DEPOSIT,
         FACECRATER,
         DRIVECRATER,
@@ -230,10 +231,10 @@ public class CVautotest extends LinearOpMode {
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            motorR.setPower((diff>0?-1:1)*power);
+            motorR.setPower((diff>0?1:-1)*power);
 
             if(Math.abs(diff)>8)
-                motorL.setPower((diff>0?-1:1)*power);
+                motorL.setPower((diff>0?1:-1)*power);
             else motorL.setPower(0);
         }else{
             motorL.setPower(0);
@@ -287,7 +288,7 @@ public class CVautotest extends LinearOpMode {
     }
 
 
-    int skatingTolerance=3;
+    int skatingTolerance=2;
     double skatingDiff=.35;
     private void skate(double power){
         int d1=(int)sideRange1.getDistance(DistanceUnit.CM);
@@ -300,9 +301,9 @@ public class CVautotest extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r+=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r-=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r+=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -472,8 +473,8 @@ public class CVautotest extends LinearOpMode {
                     lifter1.setPosition(.9);
 
                     motorDrive(-.7);
-                    if(!startHanging&&startNearCrater)
-                        Thread.sleep(500);
+//                    if(!startHanging&&startNearCrater)
+//                        Thread.sleep(500);
                     Thread.sleep(300);
                     next();
                     detector.enable();
@@ -482,16 +483,21 @@ public class CVautotest extends LinearOpMode {
                 case FACEFARSAMPLE:
                     if(turnDegrees(.2, 50)) {
                         next();
-                        motorL.setPower(-.2);
-                        motorR.setPower(-.2);
+                        motorL.setPower(.2);
+                        motorR.setPower(.2);
                     }
                     break;
                 case SCANSAMPLE:
-                    if(detector.getAligned()||detector.getXPosition()<400){
+                    //Log.i("hhs4227",String.format("x: %f, aligned: "+detector.getAligned(), detector.getXPosition()));
+
+                    if(detector.getAligned()||detector.getXPosition()<400&&detector.getXPosition()>10){
+                        motorL.setPower(-.2);
+                        motorR.setPower(-.2);
+                        Thread.sleep(400);
                         motorDrive(-.4);
-                        Thread.sleep(1500);
+                        Thread.sleep(1900);
                         motorDrive(.4);
-                        Thread.sleep(1000);
+                        Thread.sleep(1400);
                         detector.disable();
                         next();
                     }
@@ -508,7 +514,7 @@ public class CVautotest extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if(absoluteTurnDeg(.2,-55)){
+                        if(absoluteTurnDeg(.2,-65)){
                             Log.i("hhs4227",String.format("FACEWALL farCrater"));
                             next();
                         }
@@ -520,8 +526,8 @@ public class CVautotest extends LinearOpMode {
                     next();
                     break;
                 case GOTOWALL:
-                    motorDrive(-.7);
-                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
+                    motorDrive(-.8);
+                    if(frontSensor.getDistance(DistanceUnit.CM)<25){
                         Log.i("hhs4227",String.format("GOTOWALL"));
                         next();
                     }
@@ -538,7 +544,7 @@ public class CVautotest extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if (turnDegrees(.2, 95)) {
+                        if (turnDegrees(.2, 100)) {
                             Log.i("hhs4227",String.format("FACEDEPOT farcrater"));
                             next();
                         }
@@ -546,7 +552,7 @@ public class CVautotest extends LinearOpMode {
                     break;
 
                 case GOTOWALL2:
-                    skate(.6);
+                    skate(.8);
 
                     if(System.currentTimeMillis()-lastTimeLogged>500){
                         lastTimeLogged=System.currentTimeMillis();
@@ -557,11 +563,23 @@ public class CVautotest extends LinearOpMode {
 //                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 //                    }
 
-                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<30){
+                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<25){
                         Log.i("hhs4227", "End!!! Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 
                         next();
                     }
+                    break;
+                case PREPDEPOSIT:
+                    if(ownCrater){
+                        next();
+                    }
+                    else{
+                        if(turnDegrees(.25, -90)){
+                            next();
+                        }
+                    }
+
+
                     break;
 
                 case DEPOSIT:
@@ -576,7 +594,7 @@ public class CVautotest extends LinearOpMode {
 
                 case FACECRATER:
                     if(!ownCrater) {
-                        if(farRot()){
+                        if(turnDegrees(.3, 180)){
                             next();
                         }
                     }else{
@@ -596,7 +614,7 @@ public class CVautotest extends LinearOpMode {
                         skate(-.7);
                     }
                     int diff=Math.abs(motorR.getCurrentPosition()-encoderTickInitialR);
-                    if(angles.secondAngle-pitchInitial>5||angles.secondAngle-pitchInitial<-5||diff>4500){
+                    if(angles.secondAngle-pitchInitial>5||angles.secondAngle-pitchInitial<-5||diff>4200){
                         next();
                     }
 

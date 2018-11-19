@@ -108,8 +108,8 @@ public class TeleOpOfficial extends OpMode {
         }
 
 
-        powerL = gamepad1.right_stick_y;
-        powerR = gamepad1.left_stick_y;
+        powerR = gamepad1.right_stick_y;
+        powerL = gamepad1.left_stick_y;
 
         powerL*=-1;
         powerL = Range.clip(powerL, -1, 1);
@@ -118,8 +118,8 @@ public class TeleOpOfficial extends OpMode {
         powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL);
         powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR);
 
-        motorL.setPower(-powerL);
-        motorR.setPower(-powerR);
+        motorL.setPower(powerL);
+        motorR.setPower(powerR);
 
         if(gamepad1.a||gamepad2.a){                                  
             marker.setPosition(0);                                   

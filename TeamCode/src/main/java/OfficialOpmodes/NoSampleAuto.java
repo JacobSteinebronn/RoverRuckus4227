@@ -144,9 +144,9 @@ public class NoSampleAuto extends LinearOpMode {
                 }
                 break;
             case ROT2:
-                if(turnDegrees(.3, 30)){
-                    farRotState=farRotState.getNext();
-                }
+//                if(turnDegrees(.3, 30)){
+//                    farRotState=farRotState.getNext();
+//                }
                 break;
             case STOP:
             default:
@@ -165,6 +165,7 @@ public class NoSampleAuto extends LinearOpMode {
         BACKUP,
         FACEDEPOT,
         GOTOWALL2,
+        PREPDEPOSIT,
         DEPOSIT,
         FACECRATER,
         DRIVECRATER,
@@ -222,10 +223,10 @@ public class NoSampleAuto extends LinearOpMode {
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            motorR.setPower((diff>0?-1:1)*power);
+            motorR.setPower((diff>0?1:-1)*power);
 
             if(Math.abs(diff)>8)
-                motorL.setPower((diff>0?-1:1)*power);
+                motorL.setPower((diff>0?1:-1)*power);
             else motorL.setPower(0);
         }else{
             motorL.setPower(0);
@@ -292,9 +293,9 @@ public class NoSampleAuto extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r+=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r-=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r+=skatingDiff;
 
             motorR.setPower(r);
             motorL.setPower(l);
@@ -457,7 +458,7 @@ public class NoSampleAuto extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if(absoluteTurnDeg(.2,-45)){
+                        if(absoluteTurnDeg(.2,-55)){
                             Log.i("hhs4227",String.format("FACEWALL farCrater"));
                             next();
                         }
@@ -469,8 +470,8 @@ public class NoSampleAuto extends LinearOpMode {
                     next();
                     break;
                 case GOTOWALL:
-                    motorDrive(-.7);
-                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
+                    motorDrive(-.8);
+                    if(frontSensor.getDistance(DistanceUnit.CM)<25){
                         Log.i("hhs4227",String.format("GOTOWALL"));
                         next();
                     }
@@ -487,7 +488,7 @@ public class NoSampleAuto extends LinearOpMode {
                             next();
                         }
                     }else{
-                        if (turnDegrees(.2, 90)) {
+                        if (turnDegrees(.2, 100)) {
                             Log.i("hhs4227",String.format("FACEDEPOT farcrater"));
                             next();
                         }
@@ -495,7 +496,7 @@ public class NoSampleAuto extends LinearOpMode {
                     break;
 
                 case GOTOWALL2:
-                    skate(.6);
+                    skate(.8);
 
                     if(System.currentTimeMillis()-lastTimeLogged>500){
                         lastTimeLogged=System.currentTimeMillis();
@@ -506,11 +507,23 @@ public class NoSampleAuto extends LinearOpMode {
 //                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 //                    }
 
-                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<30){
+                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<25){
                         Log.i("hhs4227", "End!!! Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 
                         next();
                     }
+                    break;
+                case PREPDEPOSIT:
+                    if(ownCrater){
+                        next();
+                    }
+                    else{
+                        if(turnDegrees(.25, -90)){
+                            next();
+                        }
+                    }
+
+
                     break;
 
                 case DEPOSIT:
@@ -525,7 +538,7 @@ public class NoSampleAuto extends LinearOpMode {
 
                 case FACECRATER:
                     if(!ownCrater) {
-                        if(farRot()){
+                        if(turnDegrees(.3, 180)){
                             next();
                         }
                     }else{
