@@ -1,6 +1,7 @@
-package OfficialOpmodes;
+package DevansPracticePrograms;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -20,127 +21,122 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
-import CVTesting.Robot;
-import Helpers.CommonMath;
-import Helpers.PivotScale;
-import Helpers.RangePlus;
 import Helpers.Scale2;
 
-@TeleOp(name = "Teleop", group = "OfficialOpmodes")
-public class TeleOpOfficial extends OpMode {
+@Disabled
+@TeleOp(name = "PracticeTeleOp", group = "DevansPracticeProgram")
+public class PracticeTeleOp extends OpMode {
 
-    Robot robot;
+
+    public DcMotor motorL;
+    public DcMotor motorR;
+    private Servo lifter1;
+    private Servo lifter2;
+
+
+    //    private DistanceSensor sideRange1;
+//    private DistanceSensor sideRange2;
+//    private DistanceSensor frontSensor;
+    private Servo marker;
+
+    private BNO055IMU imu;
+
+    private Orientation angles;
+    //private Acceleration gravity;
 
 
     @Override
     public void init() {
 //        robot.init(hardwareMap);
-        this.robot=new Robot(hardwareMap, telemetry);
+
+        motorL = hardwareMap.get(DcMotor.class, "leftMotor");
+        motorR = hardwareMap.get(DcMotor.class, "rightMotor");
+
+        lifter1 = hardwareMap.get(Servo.class, "lifter1");
+        lifter2 = hardwareMap.get(Servo.class, "lifter2");
+
+        marker = hardwareMap.get(Servo.class, "marker");
+
+
+        lifter1.setDirection(Servo.Direction.REVERSE);
+        lifter2.setDirection(Servo.Direction.FORWARD);
+
+//        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+//        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+//        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
+
+        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit = BNO055IMU.AngleUnit.DEGREES;
+        parameters.accelUnit = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+        parameters.loggingEnabled = true;
+        parameters.loggingTag = "IMU";
+        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+
+
+        imu.initialize(parameters);
+        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+
+
         composeTelemetry();
 
+
     }
-
-
-    private boolean a1=false;
-
-
-
-    private boolean slowMode=false;
-
+    private boolean a1 = false;
+    private boolean slowMode = false;
     private double powerL;
     private double powerR;
     @Override
     public void loop() {
         telemetry.update();
+        if (gamepad1.a) {
+            a1 = true;
 
-        if(gamepad1.a){a1=true;}
-        else if(a1){
-            a1=false;
-            slowMode=!slowMode;
+        } else if (a1) {
+            a1 = false;
+            slowMode = !slowMode;
         }
-
-        robot.assist.setPower(gamepad2.right_stick_y);
-
-
         powerR = gamepad1.right_stick_y;
         powerL = gamepad1.left_stick_y;
 
         powerL*=-1;
-        powerL = Range.clip(powerL, -1, 1);
-        powerR = Range.clip(powerR, -1, 1);
+        powerR = Range.clip(powerR,-1,1);
+        powerL = Range.clip(powerL,-1,1);
 
         powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL);
         powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR);
 
-        robot.motorL.setPower(powerL);
-        robot.motorR.setPower(powerR);
+        motorL.setPower(powerL);
+        motorR.setPower(powerR);
 
-        if(gamepad2.left_trigger>.1){
-            robot.lifter1.setPosition(.9);
-            robot.lifter2.setPosition(.9);
-            robot.assist.setPower(.7);
+        if(gamepad1.a||gamepad2.a){
+            marker.setPosition(0);
         }
-
-
-
-        if(gamepad2.x){
-            robot.sweep.setPosition(.4);
-        }else if(gamepad2.y){
-            robot.sweep.setPosition(.6);
-        }else if(gamepad2.left_bumper){
-            robot.sweep.setPosition(.3);
-        }else if(gamepad2.right_bumper){
-            robot.sweep.setPosition(.7);
-        }else{
-            robot.sweep.setPosition(.5);
-        }
-
-        if(robot.pivot.getCurrentPosition()>120) {
-            robot.pivot.setPower(-3 * gamepad2.left_stick_y / CommonMath.abs(gamepad2.left_stick_y) * PivotScale.getPow(robot.pivot.getCurrentPosition()));
-        }else{
-            robot.pivot.setPower(RangePlus.constrain(-2 * gamepad2.left_stick_y / CommonMath.abs(gamepad2.left_stick_y) * PivotScale.getPow(robot.pivot.getCurrentPosition()), 0, 1));
-        }
-//        if(gamepad2.left_stick_y>.5)
-//            pivot.setPower(.25);
-//        else if(gamepad2.left_stick_y<-.5){
-//            pivot.setPower(-.25);
-//        }else{
-//            pivot.setPower(0);
-//        }
-
-
-        if(gamepad2.a){
-            robot.marker.setPosition(0);
-        }                                                            
-        if(gamepad2.b){
-            robot.marker.setPosition(1);
-                                                                     
+        if(gamepad1.b||gamepad2.b);{
+            marker.setPosition(1);
         }
         if(gamepad1.dpad_up||gamepad2.dpad_up)
-            robot.lifter1.setPosition(.1);
+            lifter1.setPosition(.1);
         else if(gamepad1.dpad_down||gamepad2.dpad_down)
-            robot.lifter1.setPosition(.9);
+            lifter1.setPosition(.9);
         else
-            robot.lifter1.setPosition(.5);
-
+            lifter1.setPosition(.5);
         if(gamepad1.dpad_left||gamepad2.dpad_left)
-            robot.lifter2.setPosition(.1);
+            lifter2.setPosition(.1);
         else if(gamepad1.dpad_right||gamepad2.dpad_right)
-            robot.lifter2.setPosition(.9);
+            lifter2.setPosition(.9);
         else
-            robot.lifter2.setPosition(.5);
+            lifter2.setPosition(.5);
 
 
-//        if(gamepad1.dpad_up||gamepad2.dpad_up){
-//            lifter1.setPosition(.1);
-//            lifter2.setPosition(.1);
-//        }else if(gamepad1.dpad_down||gamepad2.dpad_down){
-//            lifter1.setPosition(.9);
-//            lifter2.setPosition(.9);
-//        }else{
-//            lifter1.setPosition(0);
-//            lifter2.setPosition(0);
-//        }
+
 
     }
 
@@ -153,7 +149,7 @@ public class TeleOpOfficial extends OpMode {
             // Acquiring the angles is relatively expensive; we don't want
             // to do that in each of the three items that need that info, as that's
             // three times the necessary expense.
-            robot.angles   = robot.imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
             //gravity  = imu.getGravity();
         }
         });
@@ -173,17 +169,17 @@ public class TeleOpOfficial extends OpMode {
         telemetry.addLine()
                 .addData("heading", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(robot.angles.angleUnit, robot.angles.firstAngle);
+                        return formatAngle(angles.angleUnit, angles.firstAngle);
                     }
                 })
                 .addData("roll", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(robot.angles.angleUnit, robot.angles.secondAngle);
+                        return formatAngle(angles.angleUnit, angles.secondAngle);
                     }
                 })
-                .addData("powthing", new Func<String>() {
+                .addData("pitch", new Func<String>() {
                     @Override public String value() {
-                        return ""+robot.pivot.getPower();
+                        return formatAngle(angles.angleUnit, angles.thirdAngle);
                     }
                 });
 
@@ -193,20 +189,20 @@ public class TeleOpOfficial extends OpMode {
                         return Scale2.scaleInput(1, gamepad1.left_stick_y)+"/"+Scale2.scaleInput(1, gamepad1.right_stick_y);
                     }
                 })
-                .addData("swepos", new Func<String>() {
+                .addData("scaleInput of .5", new Func<String>() {
                     @Override public String value() {
-                        return ""+robot.sweep.getPosition();
+                        return ""+Scale2.scaleInput(1, .5);
                     }
                 });
         telemetry.addLine()
-                .addData("pivot pos", new Func<String>() {
+                .addData("enc1", new Func<String>() {
                     @Override public String value() {
-                        return robot.pivot.getCurrentPosition()+"";
+                        return motorL.getCurrentPosition()+"";
                     }
                 })
                 .addData("encR", new Func<String>() {
                     @Override public String value() {
-                        return ""+robot.motorR.getCurrentPosition();
+                        return ""+motorR.getCurrentPosition();
                     }
                 });
     }
@@ -224,4 +220,3 @@ public class TeleOpOfficial extends OpMode {
     }
 
 }
-

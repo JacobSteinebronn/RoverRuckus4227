@@ -1,18 +1,15 @@
-package CVTesting;
+
+package CommentExercises;
 import android.util.Log;
 
-import com.disnodeteam.dogecv.CameraViewDisplay;
-import com.disnodeteam.dogecv.DogeCV;
-import com.disnodeteam.dogecv.detectors.roverrukus.GoldAlignDetector;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.navigation.Acceleration;
@@ -33,65 +30,76 @@ import java.util.Locale;
 //TODO: Add full JavaDoc
 //TODO: (or at least add some comments)
 
+@Disabled
+@Autonomous(name = "Devanauto", group = "OfficialOpmodes")
+public class DevanAuto extends LinearOpMode {
+    public DcMotor motorL;
+    public DcMotor motorR;
+    public Servo lifter1;
+    public Servo lifter2;
+    //Creating and Naming all the motors and servos
+    public DistanceSensor sideRange1;
+    public DistanceSensor sideRange2;
+    public DistanceSensor frontSensor;
+    public Servo marker;
+    //Creating and naming servos and sensors
+    BNO055IMU imu;
 
-@Autonomous(name = "CvSample", group = "Auto")
-public class CVautotest extends LinearOpMode {
-
-    Robot robot;
-
-    private GoldAlignDetector detector;
+    Orientation angles;
+    Acceleration gravity;
 
 
 
-
-
-
+    //Sub-State machine for hanging declaration
     enum HangState{
         LOWER,
         LTWIST,
         WIGGLE,
         RTWIST,
         STOP;
-
+        //all the cases for the state machine
         public HangState getNext(){
-            return this.ordinal()<HangState.values().length-1?HangState.values()[this.ordinal()+1]:HangState.LOWER;
+            return this.ordinal()< HangState.values().length-1? HangState.values()[this.ordinal()+1]: HangState.LOWER;
         }
 
     }
-    HangState hangState=HangState.LOWER;
+    HangState hangState= HangState.LOWER;
 
 
     //method that dictates everything to detach from the lander. It is run by a sub-statemachine, and returns true only when
     //the entire sub-statemachine has completed. This is to better control the flow of the detaching without clogging the main
     //statemachine with insignificant clutter states.
     private boolean lower() throws InterruptedException{
-
+        //since the thread is sleeping, the code may want to test if their is an interruption but instead it throws it
         switch(hangState){
             case LOWER:
                 // Lower at 80% power
-                robot.lifter1.setPosition(0.1);
-                robot.lifter2.setPosition(0.1);
+                lifter1.setPosition(0.1);
+                lifter2.setPosition(0.1);
 
                 Thread.sleep(2400);
 
                 // Stop the first servo and let the other one continue
                 // This gets the hook sideways so it is easier to twist off
-                robot.lifter2.setPosition(.5);
+                lifter2.setPosition(.5);
                 Thread.sleep(1000);
-                robot.lifter1.setPosition(.5);
+                lifter1.setPosition(.5);
                 hangState= hangState.getNext();
+                //servos move down ,sleep(in milliseconds),one servo moves, sleeps, another servo moves,and moves on to the next case
 
                 break;
             case LTWIST:
+                //^are all the different cases written in the enum variable above.
                 if(turnDegrees(.3,15)){
                     hangState= hangState.getNext();
-
+                    //turns 15 degrees at 3/10 power, next case
                 }
                 break;
             case WIGGLE:
                 motorDrive(-.7);
                 Thread.sleep(300);
                 hangState= hangState.getNext();
+                //move back, sleep, next case
 
 
                 break;
@@ -106,6 +114,7 @@ public class CVautotest extends LinearOpMode {
             default:
                 return true;
         }
+        // there always needs to be a default in a switch statement
 
         return false;
     }
@@ -115,7 +124,7 @@ public class CVautotest extends LinearOpMode {
         DRIVEWALL,
         ROT2,
         STOP;
-
+        //cases for another switch
         public FarRotState getNext(){
             return this.ordinal()< FarRotState.values().length-1? FarRotState.values()[this.ordinal()+1]: FarRotState.ROT1;
         }
@@ -129,19 +138,23 @@ public class CVautotest extends LinearOpMode {
             case ROT1:
                 if(absoluteTurnDeg(.2, 87+(startNearCrater?90:0))){
                     farRotState=farRotState.getNext();
+                    //turn 87 degrees + 90 if startnearcrater is true or 0 degrees is the global variable is false
                 }
                 break;
+            //breaks are used to stop the case and move to the next
             case DRIVEWALL:
                 motorDrive(-.7);
-                if(robot.frontSensor.getDistance(DistanceUnit.CM)<60){
+                if(frontSensor.getDistance(DistanceUnit.CM)<60){
                     farRotState=farRotState.getNext();
                 }
                 break;
+            //range sensors used to keep the robot aligned with the wall
             case ROT2:
                 if(turnDegrees(.3, 30)){
                     farRotState=farRotState.getNext();
                 }
                 break;
+            //turn 30 degrees
             case STOP:
             default:
                 return true;
@@ -150,29 +163,28 @@ public class CVautotest extends LinearOpMode {
         return false;
     }
 
+
     enum State{
         DETACH,
         MOVEBIT,
-        FACEFARSAMPLE,
-        SCANSAMPLE,
         FACEWALL,
         DELAYTIME,
         GOTOWALL,
         BACKUP,
         FACEDEPOT,
         GOTOWALL2,
-        PREPDEPOSIT,
         DEPOSIT,
         FACECRATER,
         DRIVECRATER,
         STOP;
+        // cases to another switch
 
         public State getNext(){
-            return this.ordinal()<State.values().length-1?State.values()[this.ordinal()+1]:State.DETACH;
+            return this.ordinal()< State.values().length-1? State.values()[this.ordinal()+1]: State.DETACH;
         }
 
     }
-    State state=State.DETACH;
+    State state= State.DETACH;
 
     int encoderTickInitialR=0;
     int encoderTickInitialL=0;
@@ -189,8 +201,8 @@ public class CVautotest extends LinearOpMode {
 
 
     void motorDrive(double power){
-        robot.motorL.setPower(-power);
-        robot.motorR.setPower(power);
+        motorL.setPower(-power);
+        motorR.setPower(power);
 
     }
     private boolean driveTicks(double power, int ticks){
@@ -198,8 +210,8 @@ public class CVautotest extends LinearOpMode {
         double rPower=power;
 
 
-        int tickChangeR=robot.motorR.getCurrentPosition()-encoderTickInitialR;
-        int tickChangeL=robot.motorL.getCurrentPosition()-encoderTickInitialL;
+        int tickChangeR=motorR.getCurrentPosition()-encoderTickInitialR;
+        int tickChangeL=motorL.getCurrentPosition()-encoderTickInitialL;
 
         if(tickChangeR-tickChangeL-50>0)
             rPower/=2;
@@ -208,31 +220,30 @@ public class CVautotest extends LinearOpMode {
 
         if(ticks<0){lPower*=-1;rPower*=-1;}
 
-        robot.motorR.setPower(rPower);
-        robot.motorL.setPower(-lPower);
+        motorR.setPower(rPower);
+        motorL.setPower(-lPower);
 
-        return (ticks>0?robot.motorR.getCurrentPosition()-encoderTickInitialR>=ticks:robot.motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
+        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitialR>=ticks:motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
     }
 
     private boolean turnDegrees(double power, int degrees){
         double diff=heading-headingInitial-degrees;
-        //distance (in degrees) remaining in the turn
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            robot.motorR.setPower((diff>0?1:-1)*power);
+            motorR.setPower((diff>0?-1:1)*power);
 
             if(Math.abs(diff)>8)
-                robot.motorL.setPower((diff>0?1:-1)*power);
-            else robot.motorL.setPower(0);
+                motorL.setPower((diff>0?-1:1)*power);
+            else motorL.setPower(0);
         }else{
-            robot.motorL.setPower(0);
-            robot.motorR.setPower(0);
+            motorL.setPower(0);
+            motorR.setPower(0);
             goodCounter++;
         }
 
         if(goodCounter>=angleTimeTolerance) {
-            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,robot.angles.firstAngle));
+            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,angles.firstAngle));
             Log.i("hhs4227",String.format("headingInitial %.1f goodCounter %d, angleTimeTolerance: %d",headingInitial, goodCounter, angleTimeTolerance));
             Log.i("hhs4227",String.format("diff %.1f",diff));
 
@@ -245,22 +256,6 @@ public class CVautotest extends LinearOpMode {
 
 
     }
-
-    private boolean smartTurn(double power, int degrees){
-        double diff=heading-headingInitial-degrees;
-        //difference (in degrees) remaining in the turn
-        double totalDiff=degrees-headingInitial;
-        //total delta theta for the duration of the turn
-
-
-        double pow=power*diff/totalDiff;
-
-
-
-
-        return false;
-    }
-
     private boolean absoluteTurnDeg (double power, int degrees) {
         headingInitial = 0;
         return turnDegrees(power, degrees);
@@ -271,33 +266,33 @@ public class CVautotest extends LinearOpMode {
     private void next() {
 
         state=state.getNext();
-        encoderTickInitialR=robot.motorR.getCurrentPosition();
-        encoderTickInitialL=robot.motorR.getCurrentPosition();
+        encoderTickInitialR=motorR.getCurrentPosition();
+        encoderTickInitialL=motorR.getCurrentPosition();
         headingInitial=heading;
-        pitchInitial=robot.angles.secondAngle;
+        pitchInitial=angles.secondAngle;
         motorDrive(0);
         goodCounter=0;
-        initialRange=(int)robot.sideRange1.getDistance(DistanceUnit.CM);
+        initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
         Log.i("hhs4227",String.format("heading %.1f",heading)+"State: "+state);
 
         timeAtStart=System.currentTimeMillis()/1000;
     }
 
     private void driveTime(double power, long time) throws InterruptedException {
-        robot.motorL.setPower(power);
-        robot.motorR.setPower(power);
+        motorL.setPower(power);
+        motorR.setPower(power);
         Thread.sleep(time);
-        robot.motorL.setPower(0);
-        robot.motorR.setPower(0);
+        motorL.setPower(0);
+        motorR.setPower(0);
 
     }
 
 
-    int skatingTolerance=2;
+    int skatingTolerance=3;
     double skatingDiff=.35;
     private void skate(double power){
-        int d1=(int)robot.sideRange1.getDistance(DistanceUnit.CM);
-        int d2=(int)robot.sideRange2.getDistance(DistanceUnit.CM);
+        int d1=(int)sideRange1.getDistance(DistanceUnit.CM);
+        int d2=(int)sideRange2.getDistance(DistanceUnit.CM);
 
         //backward is r- l+
         //if port 0 is larger then r becomes more neg else vice
@@ -306,12 +301,12 @@ public class CVautotest extends LinearOpMode {
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r-=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r-=skatingDiff;
 
-            robot.motorR.setPower(r);
-            robot.motorL.setPower(l);
+            motorR.setPower(r);
+            motorL.setPower(l);
 
 
         }else{
@@ -322,8 +317,8 @@ public class CVautotest extends LinearOpMode {
             if(d2-d1-skatingTolerance>0)
                 r-=skatingDiff;
 
-            robot.motorR.setPower(r);
-            robot.motorL.setPower(l);
+            motorR.setPower(r);
+            motorL.setPower(l);
         }
 
 
@@ -334,9 +329,9 @@ public class CVautotest extends LinearOpMode {
     private boolean skateDist(double power, int dist){
         skate(power);
         if(dist>0){
-            return robot.motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
+            return motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
         }
-        return robot.motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
+        return motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
     }
 
 
@@ -347,32 +342,44 @@ public class CVautotest extends LinearOpMode {
     boolean startNearCrater=true;
     boolean ownCrater =true;
     double timeDelay=.5;
-//TODO:=============================================================================================
-
+    //TODO:=============================================================================================
+//global variables
     @Override
     public void runOpMode() throws InterruptedException {
+        motorL = hardwareMap.get(DcMotor.class, "leftMotor");
+        motorR = hardwareMap.get(DcMotor.class, "rightMotor");
+        //naming the motors on the phone
+        lifter1=hardwareMap.get(Servo.class,"lifter1");
+        lifter2=hardwareMap.get(Servo.class,"lifter2");
+//naming the servos on the phone
+        marker=hardwareMap.get(Servo.class, "marker");
 
 
-        // Set up detector
-        detector = new GoldAlignDetector(); // Create detector
-        detector.init(hardwareMap.appContext, CameraViewDisplay.getInstance()); // Initialize it with the app context and camera
-        detector.useDefaults(); // Set detector to use default settings
+        lifter1.setDirection(Servo.Direction.REVERSE);
+        lifter2.setDirection(Servo.Direction.FORWARD);
+        //setting the direcitons of the lifters
+        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
+        //naming the range sensors on the phone
+        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        // Optional tuning
-        detector.alignSize = 100; // How wide (in pixels) is the range in which the gold object will be aligned. (Represented by green bars in the preview)
-        detector.alignPosOffset = 0; // How far from center frame to offset this alignment zone.
-        detector.downscale = 0.4; // How much to downscale the input frames
+        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        imu = hardwareMap.get(BNO055IMU.class, "imu");
+        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+        parameters.loggingEnabled      = true;
+        parameters.loggingTag          = "IMU";
+        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
 
-        detector.areaScoringMethod = DogeCV.AreaScoringMethod.MAX_AREA; // Can also be PERFECT_AREA
-        //detector.perfectAreaScorer.perfectArea = 10000; // if using PERFECT_AREA scoring
-        detector.maxAreaScorer.weight = 0.005; //
 
-        detector.ratioScorer.weight = 5; //
-        detector.ratioScorer.perfectRatio = 1.0; // Ratio adjustment
+        imu.initialize(parameters);
+        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
 
-        //detector.enable();
-
-        this.robot=new Robot(hardwareMap, telemetry);
 
 
         boolean dDown=false;
@@ -382,7 +389,7 @@ public class CVautotest extends LinearOpMode {
         boolean xDown=false;
 
         boolean isReady=false;
-
+        //controller buttons for auto
         composeTelemetry2();
 
         while(!isStarted()||!isReady){
@@ -392,13 +399,13 @@ public class CVautotest extends LinearOpMode {
             if(gamepad1.a){aDown=true;}
             if(gamepad1.b){bDown=true;}
             if(gamepad1.x){xDown=true;}
-
+            //if pressed make the booleans true
             if(!gamepad1.dpad_down&&dDown){dDown=false;timeDelay-=.5;timeDelay=Math.abs(timeDelay);}
             if(!gamepad1.dpad_up&&dUp){dUp=false;timeDelay+=.5;}
             if(!gamepad1.a&&aDown){aDown=false;startHanging=!startHanging;}
             if(!gamepad1.b&&bDown){bDown=false;startNearCrater=!startNearCrater;}
             if(!gamepad1.x&&xDown){xDown=false;ownCrater=!ownCrater;}
-
+            //if you press certain buttons, it will do different things
             if(gamepad1.y){
 
                 isReady=true;
@@ -408,18 +415,18 @@ public class CVautotest extends LinearOpMode {
                 break;
             }
 
-
+            // ready to run the auto if y is pressed
         }
 
         waitForStart();
-
+        // wait for the start button on the phone to be pressed
         // TODO: IBARGUEN - Is there a reason we can't do the next 5 lines before the waitForStart()?
         telemetry.clearAll();
         composeTelemetry();
-        robot.marker.setPosition(0);
+        marker.setPosition(0);
 
-        robot.angles   = robot.imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        robot.gravity  = robot.imu.getGravity();
+        angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        gravity  = imu.getGravity();
         timeAtStart=System.currentTimeMillis()/1000;
 
         long lastTimeLogged=System.currentTimeMillis();
@@ -440,43 +447,17 @@ public class CVautotest extends LinearOpMode {
                         next();
                     }
                     break;
+                //if startHanging is true than lower
                 case MOVEBIT:
-                    robot.lifter2.setPosition(.9);
-                    robot.lifter1.setPosition(.9);
+                    lifter2.setPosition(.9);
+                    lifter1.setPosition(.9);
 
                     motorDrive(-.7);
-//                    if(!startHanging&&startNearCrater)
-//                        Thread.sleep(500);
+                    if(!startHanging&&startNearCrater)
+                        Thread.sleep(500);
                     Thread.sleep(300);
                     next();
-                    detector.enable();
-
-                    break;
-                case FACEFARSAMPLE:
-                    if(turnDegrees(.2, 50)) {
-                        next();
-                        robot.motorL.setPower(.2);
-                        robot.motorR.setPower(.2);
-                    }
-                    break;
-                case SCANSAMPLE:
-                    //Log.i("hhs4227",String.format("x: %f, aligned: "+detector.getAligned(), detector.getXPosition()));
-
-                    if(detector.getAligned()||detector.getXPosition()<400&&detector.getXPosition()>10){
-                        robot.motorL.setPower(-.2);
-                        robot.motorR.setPower(-.2);
-                        Thread.sleep(400);
-                        motorDrive(-.4);
-                        Thread.sleep(1900);
-                        motorDrive(.4);
-                        Thread.sleep(1400);
-                        detector.disable();
-                        next();
-                    }
-                    if(heading<-45){
-                        next();
-                        detector.disable();
-                    }
+                    //servos move down, move forward , if not hanging or starting near crater than sleep
                     break;
                 case FACEWALL:
                     //headingInitial = 0;
@@ -484,12 +465,12 @@ public class CVautotest extends LinearOpMode {
                         if(absoluteTurnDeg(.2,70)){
                             Log.i("hhs4227",String.format("FACEWALL nearCrater"));
                             next();
-                        }
+                        }//turn 70 degrees
                     }else{
-                        if(absoluteTurnDeg(.2,-65)){
+                        if(absoluteTurnDeg(.2,-45)){
                             Log.i("hhs4227",String.format("FACEWALL farCrater"));
                             next();
-                        }
+                        }//turn negative 45 degrees
                     }
                     break;
                 case DELAYTIME:
@@ -498,33 +479,34 @@ public class CVautotest extends LinearOpMode {
                     next();
                     break;
                 case GOTOWALL:
-                    motorDrive(-.8);
-                    if(robot.frontSensor.getDistance(DistanceUnit.CM)<25){
+                    motorDrive(-.7);
+                    if(frontSensor.getDistance(DistanceUnit.CM)<30){
                         Log.i("hhs4227",String.format("GOTOWALL"));
                         next();
-                    }
+                    }//range sensor used to check the distance from the wall
                     break;
                 case BACKUP:
-                    robot.lifter2.setPosition(.5);
-                    robot.lifter1.setPosition(.5);
+                    lifter2.setPosition(.5);
+                    lifter1.setPosition(.5);
                     next();
                     break;
+                // moves servos
                 case FACEDEPOT:
                     if(startNearCrater) {
                         if (turnDegrees(.2, 55)) {
                             Log.i("hhs4227",String.format("FACEDEPOT nearcrater"));
                             next();
-                        }
+                        }//turns 55 degrees
                     }else{
-                        if (turnDegrees(.2, 100)) {
+                        if (turnDegrees(.2, 90)) {
                             Log.i("hhs4227",String.format("FACEDEPOT farcrater"));
-                            next();
+                            next();//turns 90 degrees if start near crater is not true
                         }
                     }
                     break;
 
                 case GOTOWALL2:
-                    skate(.8);
+                    skate(.6);
 
                     if(System.currentTimeMillis()-lastTimeLogged>500){
                         lastTimeLogged=System.currentTimeMillis();
@@ -535,38 +517,26 @@ public class CVautotest extends LinearOpMode {
 //                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 //                    }
 
-                    if(System.currentTimeMillis()/1000-timeAtState>2&&robot.frontSensor.getDistance(DistanceUnit.CM)<25){
+                    if(System.currentTimeMillis()/1000-timeAtState>2&&frontSensor.getDistance(DistanceUnit.CM)<30){
                         Log.i("hhs4227", "End!!! Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
 
                         next();
                     }
                     break;
-                case PREPDEPOSIT:
-                    if(ownCrater){
-                        next();
-                    }
-                    else{
-                        if(turnDegrees(.25, -90)){
-                            next();
-                        }
-                    }
-
-
-                    break;
 
                 case DEPOSIT:
-                    robot.marker.setPosition(.7);
+                    marker.setPosition(.7);
                     Thread.sleep(300);
                     motorDrive(.7);
                     Thread.sleep(800);
                     next();
-
+                    //drops marker sleeps then drives
 
                     break;
 
                 case FACECRATER:
                     if(!ownCrater) {
-                        if(turnDegrees(.3, 180)){
+                        if(farRot()){
                             next();
                         }
                     }else{
@@ -585,8 +555,8 @@ public class CVautotest extends LinearOpMode {
                     }else {
                         skate(-.7);
                     }
-                    int diff=Math.abs(robot.motorR.getCurrentPosition()-encoderTickInitialR);
-                    if(robot.angles.secondAngle-pitchInitial>5||robot.angles.secondAngle-pitchInitial<-5||diff>4200){
+                    int diff=Math.abs(motorR.getCurrentPosition()-encoderTickInitialR);
+                    if(angles.secondAngle-pitchInitial>5||angles.secondAngle-pitchInitial<-5||diff>4500){
                         next();
                     }
 
@@ -612,7 +582,7 @@ public class CVautotest extends LinearOpMode {
     private double updateHeading() {
 
         // How much has the angle changed since the last check?
-        double deltaAngle = robot.angles.firstAngle - lastAngles.firstAngle;
+        double deltaAngle = angles.firstAngle - lastAngles.firstAngle;
 
         // This will make sure that the deltaAngle is never more than 180
         // degrees in either direction.  What is the purpose of this?
@@ -624,7 +594,7 @@ public class CVautotest extends LinearOpMode {
 
         heading += deltaAngle;
 
-        lastAngles = robot.angles;
+        lastAngles = angles;
 
         return heading;
     }
@@ -639,8 +609,8 @@ public class CVautotest extends LinearOpMode {
             // Acquiring the angles is relatively expensive; we don't want
             // to do that in each of the three items that need that info, as that's
             // three times the necessary expense.
-            robot.angles   = robot.imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            robot.gravity  = robot.imu.getGravity();
+            angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            gravity  = imu.getGravity();
         }
         });
 
@@ -652,7 +622,7 @@ public class CVautotest extends LinearOpMode {
                 })
                 .addData("Power L/R:", new Func<String>() {
                     @Override public String value() {
-                        return robot.motorL.getPower()+"/"+robot.motorR.getPower();
+                        return motorL.getPower()+"/"+motorR.getPower();
                     }
                 });
 
@@ -664,37 +634,44 @@ public class CVautotest extends LinearOpMode {
                 })
                 .addData("roll", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(robot.angles.angleUnit, robot.angles.secondAngle);
+                        return formatAngle(angles.angleUnit, angles.secondAngle);
                     }
                 })
                 .addData("pitch", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(robot.angles.angleUnit,robot.angles.thirdAngle);
+                        return formatAngle(angles.angleUnit, angles.thirdAngle);
                     }
                 });
 
         telemetry.addLine()
                 .addData("State: ", new Func<String>() {
                     @Override public String value() {
-                        if(state==State.DETACH)
+                        if(state== State.DETACH)
                             return "DETACH: "+hangState;
-                        if(state==State.FACECRATER){
+                        if(state== State.FACECRATER){
                             return "FACECRATER: "+farRotState;
                         }
                         return state+"";
 
                     }
                 })
-                ;
+                .addData("mag", new Func<String>() {
+                    @Override public String value() {
+                        return String.format(Locale.getDefault(), "%.3f",
+                                Math.sqrt(gravity.xAccel*gravity.xAccel
+                                        + gravity.yAccel*gravity.yAccel
+                                        + gravity.zAccel*gravity.zAccel));
+                    }
+                });
         telemetry.addLine()
                 .addData("enc1", new Func<String>() {
                     @Override public String value() {
-                        return robot.motorL.getCurrentPosition()+"";
+                        return motorL.getCurrentPosition()+"";
                     }
                 })
                 .addData("encR", new Func<String>() {
                     @Override public String value() {
-                        return ""+robot.motorR.getCurrentPosition();
+                        return ""+motorR.getCurrentPosition();
                     }
                 });
         telemetry.addLine()
@@ -703,17 +680,6 @@ public class CVautotest extends LinearOpMode {
                         return goodCounter+"/"+angleTimeTolerance;
                     }
                 });
-        telemetry.addLine()
-                .addData("X:", new Func<String>() {
-                    @Override public String value() {
-                        return detector.getXPosition()+"";
-                    }
-                })
-                .addData("Align:", new Func<String>() {
-            @Override public String value() {
-                return detector.getAligned()+"";
-            }
-        });
     }
 
     String line1="Initializing Autonomous... Press <Y> to finish!";
@@ -721,6 +687,7 @@ public class CVautotest extends LinearOpMode {
     String line3="<X> End at own crater? ";
     String line4="<B> Start near crater? ";
     String line5="<DPAD> Delay time ";
+    // What shows on the screen and you press the buttons to continue
 
     void composeTelemetry2() {
         telemetry.clearAll();

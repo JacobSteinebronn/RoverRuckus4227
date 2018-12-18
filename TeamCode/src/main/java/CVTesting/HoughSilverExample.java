@@ -31,12 +31,13 @@ package CVTesting;
 
 import com.disnodeteam.dogecv.CameraViewDisplay;
 import com.disnodeteam.dogecv.detectors.roverrukus.HoughSilverDetector;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.opencv.core.Size;
 
-
+@Disabled
 @TeleOp(name="Hough Silver Example", group="DogeCV")
 
 public class HoughSilverExample extends OpMode
