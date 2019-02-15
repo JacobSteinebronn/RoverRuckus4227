@@ -1,4 +1,4 @@
-package TestingRandomStuff;
+package Comp3Autos;
 import android.util.Log;
 
 import com.disnodeteam.dogecv.CameraViewDisplay;
@@ -7,7 +7,6 @@ import com.disnodeteam.dogecv.detectors.roverrukus.GoldAlignDetector;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -27,6 +26,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.Velocity;
 
 import java.util.Locale;
 
+import CVTesting.Robot;
+import Helpers.CommonMath;
+import Helpers.RangePlus;
+
 
 
 //TODO: Add full JavaDoc
@@ -34,27 +37,13 @@ import java.util.Locale;
 //TODO: Add full JavaDoc
 //TODO: (or at least add some comments)
 
-@Disabled
-@Autonomous(name = "TurnTest", group = "Auto")
-public class RevisedTurning extends LinearOpMode {
+
+@Autonomous(name = "Crater40", group = "Auto")
+public class Crater40 extends LinearOpMode {
 
     private GoldAlignDetector detector;
 
-    public DcMotor motorL;
-    public DcMotor motorR;
-    public Servo lifter1;
-    public Servo lifter2;
-
-
-    public DistanceSensor sideRange1;
-    public DistanceSensor sideRange2;
-    public DistanceSensor frontSensor;
-    public Servo marker;
-
-    BNO055IMU imu;
-
-    Orientation angles;
-    Acceleration gravity;
+    Robot robot;
 
 
 
@@ -82,16 +71,15 @@ public class RevisedTurning extends LinearOpMode {
         switch(hangState){
             case LOWER:
                 // Lower at 80% power
-                lifter1.setPosition(0.1);
-                lifter2.setPosition(0.1);
 
-                Thread.sleep(2400);
+                Thread.sleep(3450);
 
                 // Stop the first servo and let the other one continue
                 // This gets the hook sideways so it is easier to twist off
-                lifter2.setPosition(.5);
+
+                Log.i("hhs4227","Stopping lifter1");
                 Thread.sleep(1000);
-                lifter1.setPosition(.5);
+                Log.i("hhs4227","Stopping lifter2");
                 hangState= hangState.getNext();
 
                 break;
@@ -103,7 +91,7 @@ public class RevisedTurning extends LinearOpMode {
                 break;
             case WIGGLE:
                 motorDrive(-.7);
-                Thread.sleep(300);
+                Thread.sleep(200);
                 hangState= hangState.getNext();
 
 
@@ -146,7 +134,7 @@ public class RevisedTurning extends LinearOpMode {
                 break;
             case DRIVEWALL:
                 motorDrive(-.7);
-                if(frontSensor.getDistance(DistanceUnit.CM)<60){
+                if(robot.frontSensor.getDistance(DistanceUnit.CM)<60){
                     farRotState=farRotState.getNext();
                 }
                 break;
@@ -163,18 +151,30 @@ public class RevisedTurning extends LinearOpMode {
         return false;
     }
 
-    enum State{
-        TURNONE,
-        TURNTWO,
-        TURNTHREE,
+    private enum State{
+        DETACH,
+        MOVEBIT,
+        FACEFARSAMPLE,
+        SCANSAMPLE,
+        FACEWALL,
+        DELAYTIME,
+        GOTOWALL,
+        BACKUP,
+        FACEDEPOT,
+        GOTOWALL2,
+        PREPDEPOSIT,
+        DEPOSIT,
+        FACECRATER,
+        DRIVECRATER,
+        EXTENDO,
         STOP;
 
         public State getNext(){
-            return this.ordinal()<State.values().length-1?State.values()[this.ordinal()+1]:State.TURNONE;
+            return this.ordinal()<State.values().length-1?State.values()[this.ordinal()+1]:State.DETACH;
         }
 
     }
-    State state=State.TURNONE;
+    private State state=State.DETACH;
 
     int encoderTickInitialR=0;
     int encoderTickInitialL=0;
@@ -184,15 +184,15 @@ public class RevisedTurning extends LinearOpMode {
 
     int initialRange=10;
 
-    double angleTolerance=2.6;
+    double angleTolerance=3;
     int goodCounter=0;
     int angleTimeTolerance=50;
 
 
 
     void motorDrive(double power){
-        motorL.setPower(-power);
-        motorR.setPower(power);
+        robot.motorL.setPower(-power);
+        robot.motorR.setPower(power);
 
     }
     private boolean driveTicks(double power, int ticks){
@@ -200,8 +200,8 @@ public class RevisedTurning extends LinearOpMode {
         double rPower=power;
 
 
-        int tickChangeR=motorR.getCurrentPosition()-encoderTickInitialR;
-        int tickChangeL=motorL.getCurrentPosition()-encoderTickInitialL;
+        int tickChangeR=robot.motorR.getCurrentPosition()-encoderTickInitialR;
+        int tickChangeL=robot.motorL.getCurrentPosition()-encoderTickInitialL;
 
         if(tickChangeR-tickChangeL-50>0)
             rPower/=2;
@@ -210,10 +210,10 @@ public class RevisedTurning extends LinearOpMode {
 
         if(ticks<0){lPower*=-1;rPower*=-1;}
 
-        motorR.setPower(rPower);
-        motorL.setPower(-lPower);
+        robot.motorR.setPower(rPower);
+        robot.motorL.setPower(-lPower);
 
-        return (ticks>0?motorR.getCurrentPosition()-encoderTickInitialR>=ticks:motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
+        return (ticks>0?robot.motorR.getCurrentPosition()-encoderTickInitialR>=ticks:robot.motorR.getCurrentPosition()-encoderTickInitialR<=ticks);
     }
 
     private boolean turnDegrees(double power, int degrees){
@@ -222,19 +222,19 @@ public class RevisedTurning extends LinearOpMode {
 
         if(Math.abs(diff)>angleTolerance){
             goodCounter=0;
-            motorR.setPower((diff>0?1:-1)*power);
+            robot.motorR.setPower((diff>0?1:-1)*power);
 
             if(Math.abs(diff)>8)
-                motorL.setPower((diff>0?1:-1)*power);
-            else motorL.setPower(0);
+                robot.motorL.setPower((diff>0?1:-1)*power);
+            else robot.motorL.setPower(0);
         }else{
-            motorL.setPower(0);
-            motorR.setPower(0);
+            robot.motorL.setPower(0);
+            robot.motorR.setPower(0);
             goodCounter++;
         }
 
         if(goodCounter>=angleTimeTolerance) {
-            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,angles.firstAngle));
+            Log.i("hhs4227",String.format("heading: %.1f, revHeading: %.1f",heading,robot.angles.firstAngle));
             Log.i("hhs4227",String.format("headingInitial %.1f goodCounter %d, angleTimeTolerance: %d",headingInitial, goodCounter, angleTimeTolerance));
             Log.i("hhs4227",String.format("diff %.1f",diff));
 
@@ -262,13 +262,14 @@ public class RevisedTurning extends LinearOpMode {
 
         double pow=power*diff/totalDiff;
         pow = Range.clip(pow,-power,power);
-        if(System.currentTimeMillis()-lastTime>100) {
-            Log.i("hhs4227", String.format(""+state+": Diff: %f,  Total: %f, pow: %f", diff, totalDiff, pow));
-            lastTime=System.currentTimeMillis();
-        }
+        pow= RangePlus.pushOut(pow, -.15, .15);
+//        if(System.currentTimeMillis()-lastTime>100) {
+//            Log.i("hhs4227", String.format(""+state+": Diff: %f,  Total: %f, pow: %f", diff, totalDiff, pow));
+//            lastTime=System.currentTimeMillis();
+//        }
 
-        motorL.setPower((degrees>0?-1:1)*pow);
-        motorR.setPower((degrees>0?-1:1)*pow);
+        robot.motorL.setPower((degrees>0?-1:1)*pow);
+        robot.motorR.setPower((degrees>0?-1:1)*pow);
 
 
 
@@ -280,38 +281,40 @@ public class RevisedTurning extends LinearOpMode {
         return false;
     }
 
+    private double landedGyro;
+
     private boolean absoluteTurnDeg (double power, int degrees) {
-        headingInitial = 0;
+        headingInitial = landedGyro;
         return turnDegrees(power, degrees);
     }
     private boolean smartAbsoluteTurn (double power, int degrees) {
-        headingInitial = 0;
+        headingInitial = landedGyro;
         return smartTurn(power, degrees);
     }
     double timeAtStart=System.currentTimeMillis()/1000;
     double timeAtState=timeAtStart;
 
     private void next() {
-        Log.i("hhs4227","Finished state" +state);
+
         state=state.getNext();
-        encoderTickInitialR=motorR.getCurrentPosition();
-        encoderTickInitialL=motorR.getCurrentPosition();
+        encoderTickInitialR=robot.motorR.getCurrentPosition();
+        encoderTickInitialL=robot.motorR.getCurrentPosition();
         headingInitial=heading;
-        pitchInitial=angles.secondAngle;
+        pitchInitial=robot.angles.secondAngle;
         motorDrive(0);
         goodCounter=0;
-        initialRange=(int)sideRange1.getDistance(DistanceUnit.CM);
-        Log.i("hhs4227",String.format("heading %.1f",heading)+"New State: "+state);
+        initialRange=(int)robot.sideRange1.getDistance(DistanceUnit.CM);
+        Log.i("hhs4227",String.format("heading %.1f",heading)+"State: "+state);
 
         timeAtStart=System.currentTimeMillis()/1000;
     }
 
     private void driveTime(double power, long time) throws InterruptedException {
-        motorL.setPower(power);
-        motorR.setPower(power);
+        robot.motorL.setPower(power);
+        robot.motorR.setPower(power);
         Thread.sleep(time);
-        motorL.setPower(0);
-        motorR.setPower(0);
+        robot.motorL.setPower(0);
+        robot.motorR.setPower(0);
 
     }
 
@@ -319,8 +322,8 @@ public class RevisedTurning extends LinearOpMode {
     int skatingTolerance=2;
     double skatingDiff=.35;
     private void skate(double power){
-        int d1=(int)sideRange1.getDistance(DistanceUnit.CM);
-        int d2=(int)sideRange2.getDistance(DistanceUnit.CM);
+        int d1=(int)robot.sideRange1.getDistance(DistanceUnit.CM);
+        int d2=(int)robot.sideRange2.getDistance(DistanceUnit.CM);
 
         //backward is r- l+
         //if port 0 is larger then r becomes more neg else vice
@@ -333,20 +336,20 @@ public class RevisedTurning extends LinearOpMode {
             if(d2-d1-skatingTolerance>0)
                 r+=skatingDiff;
 
-            motorR.setPower(r);
-            motorL.setPower(l);
+            robot.motorR.setPower(r);
+            robot.motorL.setPower(l);
 
 
         }else{
             double r=-power;
             double l=power;
             if(d1-d2-skatingTolerance>0)
-                r+=skatingDiff;
-            if(d2-d1-skatingTolerance>0)
                 r-=skatingDiff;
+            if(d2-d1-skatingTolerance>0)
+                r+=skatingDiff;
 
-            motorR.setPower(r);
-            motorL.setPower(l);
+            robot.motorR.setPower(r);
+            robot.motorL.setPower(l);
         }
 
 
@@ -357,24 +360,24 @@ public class RevisedTurning extends LinearOpMode {
     private boolean skateDist(double power, int dist){
         skate(power);
         if(dist>0){
-            return motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
+            return robot.motorR.getCurrentPosition()-encoderTickInitialR>dist-encoderTickInitialR;
         }
-        return motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
+        return robot.motorR.getCurrentPosition()-encoderTickInitialR<dist-encoderTickInitialR;
     }
 
-
+    long lastTimeLogged;
+    int diff;
 
 
     //TODO:=============================================================================================
-    boolean startHanging=true;
-    boolean startNearCrater=true;
-    boolean ownCrater =true;
-    double timeDelay=.5;
+    boolean startHanging=false;
+    boolean startNearCrater=false;
+    boolean ownCrater =false;
+    double timeDelay=0;
 //TODO:=============================================================================================
 
     @Override
     public void runOpMode() throws InterruptedException {
-
 
         // Set up detector
         detector = new GoldAlignDetector(); // Create detector
@@ -395,39 +398,7 @@ public class RevisedTurning extends LinearOpMode {
 
         //detector.enable();
 
-        motorL = hardwareMap.get(DcMotor.class, "leftMotor");
-        motorR = hardwareMap.get(DcMotor.class, "rightMotor");
-
-        lifter1=hardwareMap.get(Servo.class,"lifter1");
-        lifter2=hardwareMap.get(Servo.class,"lifter2");
-
-        marker=hardwareMap.get(Servo.class, "marker");
-
-
-        lifter1.setDirection(Servo.Direction.REVERSE);
-        lifter2.setDirection(Servo.Direction.FORWARD);
-
-        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
-        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
-        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
-
-        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        imu = hardwareMap.get(BNO055IMU.class, "imu");
-        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
-        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
-        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
-        parameters.loggingEnabled      = true;
-        parameters.loggingTag          = "IMU";
-        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
-
-
-        imu.initialize(parameters);
-        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+        this.robot=new Robot(hardwareMap, telemetry);
 
 
 
@@ -439,42 +410,47 @@ public class RevisedTurning extends LinearOpMode {
 
         boolean isReady=false;
 
+
+
         composeTelemetry2();
-
-
 
         waitForStart();
 
         // TODO: IBARGUEN - Is there a reason we can't do the next 5 lines before the waitForStart()?
         telemetry.clearAll();
         composeTelemetry();
-        marker.setPosition(0);
+        robot.marker.setPosition(0);
 
-        angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-        gravity  = imu.getGravity();
+        robot.angles   = robot.imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+        robot.gravity  = robot.imu.getGravity();
         timeAtStart=System.currentTimeMillis()/1000;
 
-        long lastTimeLogged=System.currentTimeMillis();
+        robot.lights.setPosition(.6019958);
+
+        lastTimeLogged=System.currentTimeMillis();
 
         while(!isStopRequested()){
             updateHeading();
-            telemetry.update();
+            if(state!=State.SCANSAMPLE)
+                telemetry.update();
 
             switch(state){
-                case TURNONE:
-                    if(smartTurn(.35, 90)){
-                        next();
-                    }
-                    break;
-                case TURNTWO:
-                    if(smartTurn(.35, -60))
-                        next();
-                    break;
-                case TURNTHREE:
-                    if(smartTurn(.35, 300)){
-                        //next();
-                    }
-                    break;
+                case DETACH:        detachState();        break;
+                case MOVEBIT:       moveBitState();       break;
+                case FACEFARSAMPLE: faceFarSampleState(); break;
+                case SCANSAMPLE:    scanSampleState();    break;
+                case FACEWALL:      faceWallState();      break;
+                case DELAYTIME:     delayTimeState();     break;
+                case GOTOWALL:      goToWallState();      break;
+                case BACKUP:        backupState();        break;
+                case FACEDEPOT:     faceDepotState();     break;
+                case GOTOWALL2:     goToWall2State();     break;
+                case PREPDEPOSIT:   preDepositState();    break;
+                case DEPOSIT:       depositState();       break;
+                case FACECRATER:    faceCraterState();    break;
+                case DRIVECRATER:   driveCraterState();   break;
+                case EXTENDO:       extendoState();       break;
+
                 case STOP:
                 default:
                     telemetry.update();
@@ -490,12 +466,235 @@ public class RevisedTurning extends LinearOpMode {
 
     }
 
-    double heading;
-    Orientation lastAngles = new Orientation();
+
+
+
+    private void detachState() throws InterruptedException {
+
+        if(startHanging){
+            if(lower()){
+
+                detector.enable();
+                Log.i("hhs4227","ENABLING DETECTOR");
+                next();
+            }
+
+        }else {
+            robot.pivot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            robot.hang.setPower(1);
+            Thread.sleep(4000);
+            motorDrive(.3);
+            Thread.sleep(1500);
+            robot.pivot.setPower(.3);
+            motorDrive(0);
+            robot.latch.setPosition(1.1);
+            Thread.sleep(1000);
+            robot.pivot.setPower(0);
+            robot.hang.setPower(0);
+
+
+
+            robot.pivot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            landedGyro=heading;
+            detector.enable();
+            Log.i("hhs4227","ENABLING DETECTOR");
+            robot.marker.setPosition(.3);
+            next();
+        }
+    }
+
+    private void moveBitState() throws InterruptedException {
+
+
+        motorDrive(-.7);
+//                    if(!startHanging&&startNearCrater)
+//                        Thread.sleep(500);
+        if(startHanging)
+            Thread.sleep(0);
+        else
+            Thread.sleep(300);
+        next();
+        state=State.EXTENDO;
+
+
+    }
+
+    private void faceFarSampleState() throws InterruptedException {
+        robot.hang.setPower(1);
+        robot.motorL.setPower(-.4);
+        robot.motorR.setPower(-.4);
+        Thread.sleep(600);
+        robot.hang.setPower(0);
+        next();
+        if(startNearCrater){
+
+            robot.motorL.setPower(.2);
+            robot.motorR.setPower(.2);
+        }else {
+            robot.motorL.setPower(.15);
+            robot.motorR.setPower(.15);
+        }
+
+    }
+    int success=0;
+    private void scanSampleState() throws InterruptedException {
+
+        if(System.currentTimeMillis()-lastTimeLogged>300){
+            lastTimeLogged=System.currentTimeMillis();
+            Log.i("hhs4227",String.format("x: %f, aligned: "+detector.getAligned(), detector.getXPosition()));
+        }
+
+
+        if(detector.getAligned()||detector.getXPosition()<400&&detector.getXPosition()>10) {
+            success++;
+            robot.motorL.setPower(0);
+            robot.motorR.setPower(0);
+            Thread.sleep(100);
+        }
+        if(success>3){
+            detector.disable();
+            robot.motorL.setPower(-.35);
+            robot.motorR.setPower(-.35);
+            Thread.sleep(200);
+            robot.sweep.setPosition(.3);
+            motorDrive(-.8);
+            Thread.sleep(1400);
+            robot.sweep.setPosition(.5);
+
+
+            next();
+        }else{
+            robot.motorL.setPower(.15);
+            robot.motorR.setPower(.15);
+        }
+        if(heading<-45){
+            next();
+            detector.disable();
+        }
+    }
+
+    private void faceWallState(){
+
+        if(smartAbsoluteTurn(.35,45)){
+            Log.i("hhs4227",String.format("FACEWALL farCrater"));
+            next();
+        }
+
+    }
+
+    private void delayTimeState() throws InterruptedException{
+        Thread.sleep((int)(timeDelay*1000));
+        //Log.i("hhs4227","DELAYTIME");
+        next();
+    }
+
+    private void goToWallState(){
+
+        motorDrive(-.4);
+        if(startNearCrater){
+            if(robot.frontSensor.getDistance(DistanceUnit.CM)<30){
+                Log.i("hhs4227",String.format("GOTOWALL"));
+                next();
+            }
+        }else if(robot.frontSensor2.getDistance(DistanceUnit.CM)<15){
+            Log.i("hhs4227",String.format("GOTOWALL"));
+            next();
+        }
+
+    }
+
+    private void backupState(){
+        next();
+    }
+
+    private void faceDepotState(){
+
+        if(smartAbsoluteTurn(.45,130)){
+            next();
+        }
+
+    }
+
+    private void goToWall2State(){
+        skate(-.4);
+
+
+//                    if(System.currentTimeMillis()%500<100){
+//                        Log.i("hhs4227", "Time (Seconds): "+System.currentTimeMillis()/1000+", State(S)"+timeAtState);
+//                    }
+        diff=Math.abs(robot.motorR.getCurrentPosition()-encoderTickInitialR);
+
+        if(robot.backSensor.getDistance(DistanceUnit.CM)<25){
+
+            next();
+        }
+    }
+
+    private void preDepositState(){
+        //if(smartTurn(.7,180))
+        next();
+
+
+
+
+
+    }
+
+    private void depositState() throws InterruptedException {
+
+        robot.marker.setPosition(.8);
+        Thread.sleep(300);
+        motorDrive(-.7);
+        Thread.sleep(600);
+        next();
+
+
+
+    }
+
+    private void faceCraterState(){
+
+        next();
+
+
+    }
+
+    private void driveCraterState(){
+
+
+        if(!ownCrater){
+            skate(.7);
+        }else {
+            skate(-.8);
+        }
+        diff=Math.abs(robot.motorR.getCurrentPosition()-encoderTickInitialR);
+        if(robot.angles.secondAngle-pitchInitial>5||robot.angles.secondAngle-pitchInitial<-5||diff>3000){
+            next();
+        }
+
+
+    }
+
+    private void extendoState() throws InterruptedException{
+        robot.pivot.setPower(-.2);
+        robot.reel.setPower(1);
+        Thread.sleep(1400);
+        robot.pivot.setPower(0);
+        Thread.sleep(1400);
+        robot.reel.setPower(0);
+        next();
+
+
+    }
+
+
+
+    private double heading;
+    private Orientation lastAngles = new Orientation();
     private double updateHeading() {
 
         // How much has the angle changed since the last check?
-        double deltaAngle = angles.firstAngle - lastAngles.firstAngle;
+        double deltaAngle = robot.angles.firstAngle - lastAngles.firstAngle;
 
         // This will make sure that the deltaAngle is never more than 180
         // degrees in either direction.  What is the purpose of this?
@@ -507,12 +706,12 @@ public class RevisedTurning extends LinearOpMode {
 
         heading += deltaAngle;
 
-        lastAngles = angles;
+        lastAngles = robot.angles;
 
         return heading;
     }
 
-    void composeTelemetry() {
+    private void composeTelemetry() {
         telemetry.clearAll();
 
         // At the beginning of each telemetry update, grab a bunch of data
@@ -522,8 +721,8 @@ public class RevisedTurning extends LinearOpMode {
             // Acquiring the angles is relatively expensive; we don't want
             // to do that in each of the three items that need that info, as that's
             // three times the necessary expense.
-            angles   = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
-            gravity  = imu.getGravity();
+            robot.angles   = robot.imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
+            robot.gravity  = robot.imu.getGravity();
         }
         });
 
@@ -535,7 +734,7 @@ public class RevisedTurning extends LinearOpMode {
                 })
                 .addData("Power L/R:", new Func<String>() {
                     @Override public String value() {
-                        return motorL.getPower()+"/"+motorR.getPower();
+                        return robot. motorL.getPower()+"/"+robot.motorR.getPower();
                     }
                 });
 
@@ -547,40 +746,36 @@ public class RevisedTurning extends LinearOpMode {
                 })
                 .addData("roll", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(angles.angleUnit, angles.secondAngle);
+                        return formatAngle(robot.angles.angleUnit,robot. angles.secondAngle);
                     }
                 })
                 .addData("pitch", new Func<String>() {
                     @Override public String value() {
-                        return formatAngle(angles.angleUnit, angles.thirdAngle);
+                        return formatAngle(robot.angles.angleUnit, robot.angles.thirdAngle);
                     }
                 });
 
         telemetry.addLine()
                 .addData("State: ", new Func<String>() {
                     @Override public String value() {
-
+                        if(state==State.DETACH)
+                            return "DETACH: "+hangState;
+                        if(state==State.FACECRATER){
+                            return "FACECRATER: "+farRotState;
+                        }
                         return state+"";
 
-                    }
-                })
-                .addData("mag", new Func<String>() {
-                    @Override public String value() {
-                        return String.format(Locale.getDefault(), "%.3f",
-                                Math.sqrt(gravity.xAccel*gravity.xAccel
-                                        + gravity.yAccel*gravity.yAccel
-                                        + gravity.zAccel*gravity.zAccel));
                     }
                 });
         telemetry.addLine()
                 .addData("enc1", new Func<String>() {
                     @Override public String value() {
-                        return motorL.getCurrentPosition()+"";
+                        return robot.motorL.getCurrentPosition()+"";
                     }
                 })
                 .addData("encR", new Func<String>() {
                     @Override public String value() {
-                        return ""+motorR.getCurrentPosition();
+                        return ""+robot.motorR.getCurrentPosition();
                     }
                 });
         telemetry.addLine()
@@ -608,7 +803,7 @@ public class RevisedTurning extends LinearOpMode {
     String line4="<B> Start near crater? ";
     String line5="<DPAD> Delay time ";
 
-    void composeTelemetry2() {
+    private void composeTelemetry2() {
         telemetry.clearAll();
         // At the beginning of each telemetry update, grab a bunch of data
         // from the IMU that we will then display in separate lines.

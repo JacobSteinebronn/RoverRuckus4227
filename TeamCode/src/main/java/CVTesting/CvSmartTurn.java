@@ -69,17 +69,11 @@ public class CvSmartTurn extends LinearOpMode {
         switch(hangState){
             case LOWER:
                 // Lower at 80% power
-                robot.lifter1.setPosition(0.1);
-                robot.lifter2.setPosition(0.1);
 
                 Thread.sleep(3450);
 
-                // Stop the first servo and let the other one continue
-                // This gets the hook sideways so it is easier to twist off
-                robot.lifter1.setPosition(.5);
                 Log.i("hhs4227","Stopping lifter1");
                 Thread.sleep(1000);
-                robot.lifter2.setPosition(.5);
                 Log.i("hhs4227","Stopping lifter2");
                 hangState= hangState.getNext();
 
@@ -474,8 +468,7 @@ public class CvSmartTurn extends LinearOpMode {
                     break;
                 case MOVEBIT:
                     Log.i("hhs4227","Pulling lifters down");
-                    robot.lifter2.setPosition(.9);
-                    robot.lifter1.setPosition(.9);
+
 
                     motorDrive(-.7);
 //                    if(!startHanging&&startNearCrater)
@@ -560,13 +553,9 @@ public class CvSmartTurn extends LinearOpMode {
                     }
                     break;
                 case BACKUP:
-                    robot.lifter2.setPosition(.5);
-                    robot.lifter1.setPosition(.5);
                     next();
                     break;
                 case FACEDEPOT:
-                    robot.lifter2.setPosition(.5);
-                    robot.lifter1.setPosition(.5);
                     if(startNearCrater) {
                         if (smartTurn(.35, 55)) {
                             Log.i("hhs4227",String.format("FACEDEPOT nearcrater"));

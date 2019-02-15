@@ -4,6 +4,7 @@ import android.util.Log;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -30,7 +31,7 @@ import java.util.Locale;
 //TODO: Add full JavaDoc
 //TODO: (or at least add some comments)
 
-
+//@Disabled
 @Autonomous(name = "OfficialAuto", group = "OfficialOpmodes")
 public class NoSampleAuto extends LinearOpMode {
     public DcMotor motorL;
@@ -338,39 +339,39 @@ public class NoSampleAuto extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        motorL = hardwareMap.get(DcMotor.class, "leftMotor");
-        motorR = hardwareMap.get(DcMotor.class, "rightMotor");
-
-        lifter1=hardwareMap.get(Servo.class,"lifter1");
-        lifter2=hardwareMap.get(Servo.class,"lifter2");
-
-        marker=hardwareMap.get(Servo.class, "marker");
-
-
-        lifter1.setDirection(Servo.Direction.REVERSE);
-        lifter2.setDirection(Servo.Direction.FORWARD);
-
-        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
-        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
-        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
-
-        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
-        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        imu = hardwareMap.get(BNO055IMU.class, "imu");
-        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
-        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
-        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
-        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
-        parameters.loggingEnabled      = true;
-        parameters.loggingTag          = "IMU";
-        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
-
-
-        imu.initialize(parameters);
-        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
+//        motorL = hardwareMap.get(DcMotor.class, "leftMotor");
+//        motorR = hardwareMap.get(DcMotor.class, "rightMotor");
+//
+//        lifter1=hardwareMap.get(Servo.class,"lifter1");
+//        lifter2=hardwareMap.get(Servo.class,"lifter2");
+//
+//        marker=hardwareMap.get(Servo.class, "marker");
+//
+//
+//        lifter1.setDirection(Servo.Direction.REVERSE);
+//        lifter2.setDirection(Servo.Direction.FORWARD);
+//
+//        frontSensor=hardwareMap.get(DistanceSensor.class, "front");
+//        sideRange1=hardwareMap.get(DistanceSensor.class, "sideRange1");
+//        sideRange2=hardwareMap.get(DistanceSensor.class, "sideRange2");
+//
+//        motorL.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//        motorR.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+//
+//        motorL.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        motorR.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+//        imu = hardwareMap.get(BNO055IMU.class, "imu");
+//        BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
+//        parameters.angleUnit           = BNO055IMU.AngleUnit.DEGREES;
+//        parameters.accelUnit           = BNO055IMU.AccelUnit.METERS_PERSEC_PERSEC;
+//        parameters.calibrationDataFile = "BNO055IMUCalibration.json"; // see the calibration sample opmode
+//        parameters.loggingEnabled      = true;
+//        parameters.loggingTag          = "IMU";
+//        parameters.accelerationIntegrationAlgorithm = new JustLoggingAccelerationIntegrator();
+//
+//
+//        imu.initialize(parameters);
+//        imu.startAccelerationIntegration(new Position(), new Velocity(), 1000);
 
 
 

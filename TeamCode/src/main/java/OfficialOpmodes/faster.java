@@ -4,7 +4,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 //import com.qualcomm.robotcore.hardware.DcMotorSimple;
 //import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Func;
@@ -21,19 +20,17 @@ import Helpers.PivotScale;
 import Helpers.RangePlus;
 import Helpers.Scale2;
 
-@TeleOp(name = "Teleop", group = "OfficialOpmodes")
-public class TeleOpOfficial extends OpMode {
+@TeleOp(name = "faster?", group = "OfficialOpmodes")
+public class faster extends OpMode {
 
     Robot robot;
-    private DigitalChannel magSwitch;
+
 
     @Override
     public void init() {
 //        robot.init(hardwareMap);
         this.robot=new Robot(hardwareMap, telemetry);
-        magSwitch=hardwareMap.get(DigitalChannel.class, "magSwitch");
 
-        composeTelemetry();
         lastTimeLogged=System.currentTimeMillis();
     }
 
@@ -64,21 +61,17 @@ public class TeleOpOfficial extends OpMode {
     @Override
     public void loop() {
         diff=(int)(System.currentTimeMillis()-lastTimeLogged)/1000;
+        if(robot.reel.getCurrentPosition()<minExtensionPosition)minExtensionPosition=robot.reel.getCurrentPosition();
+        int armDiff=robot.reel.getCurrentPosition()-minExtensionPosition;
 
 
-
-        telemetry.update();
 
         if(gamepad1.a){a1=true;}
         else if(a1){
             a1=false;
             slowMode=!slowMode;
         }
-
-        if(robot.reel.getCurrentPosition()<minExtensionPosition)minExtensionPosition=robot.reel.getCurrentPosition();
-        int armDiff=robot.reel.getCurrentPosition()-minExtensionPosition;
-
-        if(armDiff<2800) {
+        if(armDiff<2000) {
             robot.reel.setPower(-gamepad2.right_stick_y);
         }else{
             robot.reel.setPower(-1);
@@ -92,16 +85,16 @@ public class TeleOpOfficial extends OpMode {
         powerL = Range.clip(powerL, -1, 1);
         powerR = Range.clip(powerR, -1, 1);
 
-        powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL*2/3);
-        powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR*2/3);
+        powerL= Scale2.scaleInput(1, slowMode?powerL/2:powerL);
+        powerR= Scale2.scaleInput(1, slowMode?powerR/2:powerR);
 
         robot.motorL.setPower(powerL);
         robot.motorR.setPower(powerR);
 
-        if(gamepad1.left_trigger>.1){
+        if(gamepad2.left_trigger>.1){
             robot.latch.setPosition(0);
         }
-        if(gamepad1.right_trigger>.1){
+        if(gamepad2.right_trigger>.1){
             robot.latch.setPosition(.75);
         }
 
@@ -125,27 +118,11 @@ public class TeleOpOfficial extends OpMode {
         if(gamepad2.dpad_left)
             armSlowMode=false;
 
-        if(gamepad1.left_bumper){
-                        if(magSwitch.getState()) {
-                robot.pivot.setPower(0.7);
-            }else{
-                robot.pivot.setPower(.08);
-                robot.motorL.setPower(-.15);
-                robot.motorR.setPower(.15);
-            }
-        }else if(gamepad1.x) {
-            robot.pivot.setPower(.1);
-        }else{
-                if (armSlowMode)
-                    robot.pivot.setPower(-gamepad2.left_stick_y / 6 * (1 + Math.abs(Math.cos(disp * Math.PI / 2))));
-                if (!armSlowMode)
-                    robot.pivot.setPower(-gamepad2.left_stick_y / 3 * (1 + Math.abs(Math.cos(disp * Math.PI / 2))));
-        }
+        if(armSlowMode)
+            robot.pivot.setPower(-gamepad2.left_stick_y/6*(1+Math.abs(Math.cos(disp*Math.PI/2))));
+        if(!armSlowMode)
+            robot.pivot.setPower(-gamepad2.left_stick_y/3*(1+Math.abs(Math.cos(disp*Math.PI/2))));
 
-
-        if(gamepad2.y){
-            minPos=robot.pivot.getCurrentPosition();
-        }
         //Map the joystick value to the composite function between linear and trig, the function is shown above
 
 
@@ -178,13 +155,11 @@ public class TeleOpOfficial extends OpMode {
 
         if(gamepad2.a){
             robot.marker.setPosition(0);
-        }                                                            
+        }
         if(gamepad2.b){
             robot.marker.setPosition(1);
-                                                                     
+
         }
-
-
 
         robot.lights.setPosition(.6019958);
 
@@ -235,9 +210,9 @@ public class TeleOpOfficial extends OpMode {
         });
 
         telemetry.addLine()
-                .addData("UPDATED: Y/!mag", new Func<String>() {
+                .addData("Disp/power", new Func<String>() {
                     @Override public String value() {
-                        return gamepad1.y+"/"+!magSwitch.getState();
+                        return disp+"/"+armPower;
                     }
                 })
                 .addData("Math.cos(Math.PI/2*disp);", new Func<String>() {
@@ -257,9 +232,9 @@ public class TeleOpOfficial extends OpMode {
                         return ""+robot.reel.getCurrentPosition();
                     }
                 })
-                .addData("magnet?", new Func<String>() {
+                .addData("powthing", new Func<String>() {
                     @Override public String value() {
-                        return ""+magSwitch.getState();
+                        return ""+robot.pivot.getPower();
                     }
                 });
 

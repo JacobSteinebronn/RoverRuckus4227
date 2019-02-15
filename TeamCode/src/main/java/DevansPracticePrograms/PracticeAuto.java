@@ -37,15 +37,21 @@ import Helpers.CommonMath;
 import Helpers.RangePlus;
 @Disabled
 @Autonomous(name = "PracticeAuto", group = "DevansPracticePrograms")
-public class PracticeAuto extends OpMode{
+public class PracticeAuto extends OpMode {
     @Override
     public void init() {
 
 
     }
+    public void start(){
 
+    }
     @Override
     public void loop() {
+
+    }
+
+    public void stop() {
 
     }
 }

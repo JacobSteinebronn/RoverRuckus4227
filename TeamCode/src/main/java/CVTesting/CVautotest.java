@@ -7,6 +7,7 @@ import com.disnodeteam.dogecv.detectors.roverrukus.GoldAlignDetector;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.bosch.JustLoggingAccelerationIntegrator;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -33,7 +34,7 @@ import java.util.Locale;
 //TODO: Add full JavaDoc
 //TODO: (or at least add some comments)
 
-
+@Disabled
 @Autonomous(name = "CvSample", group = "Auto")
 public class CVautotest extends LinearOpMode {
 
@@ -69,16 +70,12 @@ public class CVautotest extends LinearOpMode {
         switch(hangState){
             case LOWER:
                 // Lower at 80% power
-                robot.lifter1.setPosition(0.1);
-                robot.lifter2.setPosition(0.1);
 
                 Thread.sleep(2400);
 
-                // Stop the first servo and let the other one continue
-                // This gets the hook sideways so it is easier to twist off
-                robot.lifter2.setPosition(.5);
+
                 Thread.sleep(1000);
-                robot.lifter1.setPosition(.5);
+
                 hangState= hangState.getNext();
 
                 break;
@@ -441,8 +438,6 @@ public class CVautotest extends LinearOpMode {
                     }
                     break;
                 case MOVEBIT:
-                    robot.lifter2.setPosition(.9);
-                    robot.lifter1.setPosition(.9);
 
                     motorDrive(-.7);
 //                    if(!startHanging&&startNearCrater)
@@ -505,8 +500,6 @@ public class CVautotest extends LinearOpMode {
                     }
                     break;
                 case BACKUP:
-                    robot.lifter2.setPosition(.5);
-                    robot.lifter1.setPosition(.5);
                     next();
                     break;
                 case FACEDEPOT:

@@ -25,7 +25,7 @@ import java.util.Locale;
 /**
  * Created by hhs-robotics on 8/1/2018.
  */
-
+@Disabled
 @Autonomous(name = "autoinittest", group = "Auto")
 public class TestingAutoInit extends LinearOpMode {
 
